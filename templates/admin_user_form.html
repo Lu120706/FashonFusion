@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} usuario{% endblock %}
+{% block content %}
+<h2>{{ action }} usuario</h2>
+<form method="POST">
+  <div class="mb-3">
+    <label class="form-label">ID usuario</label>
+    {% if user %}
+      <input class="form-control" name="id_usuario" value="{{ user.id_usuario }}" readonly>
+    {% else %}
+      <input class="form-control" name="id_usuario" required>
+    {% endif %}
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Nombre</label>
+    <input class="form-control" name="nombre" value="{{ user.nombre if user else '' }}" required>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Correo</label>
+    <input class="form-control" name="correo" value="{{ user.correo if user else '' }}" type="email">
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Contraseña {% if user %}<small class="text-muted">(dejar vacío para no cambiar)</small>{% endif %}</label>
+    <input class="form-control" type="password" name="password" {% if not user %}required{% endif %}>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Rol</label>
+    <select class="form-select" name="role" required>
+      <option value="user" {% if (user and user.id_rol=='user') or (not user) %}selected{% endif %}>User</option>
+      <option value="admin" {% if user and user.id_rol=='admin' %}selected{% endif %}>Admin</option>
+    </select>
+  </div>
+
+  <button class="btn btn-primary">{{ action }}</button>
+  <a class="btn btn-secondary" href="{{ url_for('admin_users') }}">Cancelar</a>
+</form>
+{% endblock %}
