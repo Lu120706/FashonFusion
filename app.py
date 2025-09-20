@@ -270,10 +270,23 @@ def cart():
 def add_to_cart(pid):
     product = next((p for p in PRODUCTS if p['id'] == pid), None)
     if product:
+        size = request.form.get("size")
+        color = request.form.get("color")
+
+        # clonamos el producto para no modificar el original
+        item = {
+            "id": product["id"],
+            "name": product["name"],
+            "price": product["price"],
+            "image": product["image"],
+            "size": size,
+            "color": color
+        }
+
         session.setdefault('cart', [])
-        session['cart'].append(product)
+        session['cart'].append(item)
         session.modified = True
-        flash(f"{product['name']} agregado al carrito", 'success')
+        flash(f"{product['name']} agregado al carrito (Talla {size}, Color {color})", 'success')
     return redirect(url_for('cart'))
 
 @app.route('/cart/remove/<int:product_id>', methods=['POST'])
