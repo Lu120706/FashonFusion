@@ -111,6 +111,7 @@ def index():
     return render_template('index.html', products=PRODUCTS, carousel_images=CAROUSEL_IMAGES)
 
 # Registro público (rol 'user' por defecto)
+# Registro público (rol 'user' por defecto)
 @app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
@@ -136,7 +137,7 @@ def register():
             flash('Las contraseñas no coinciden', 'danger')
             return render_template('register.html')
 
-        # seguir con el resto de la lógica (existencia, creación, etc.)
+        # verificar duplicados
         if Usuario.query.filter_by(id_usuario=id_usuario).first():
             flash('El id de usuario ya está registrado', 'danger')
             return render_template('register.html')
@@ -145,17 +146,25 @@ def register():
             flash('El correo ya está registrado', 'danger')
             return render_template('register.html')
 
-        # Asegurar que exista el rol 'user'
+        # Rol fijo: siempre será 'user'
         rol_user = Rol.query.filter_by(id_rol='user').first()
         if not rol_user:
             rol_user = Rol(id_rol='user', nombre='Usuario')
             db.session.add(rol_user)
             db.session.commit()
 
-        u = Usuario(id_usuario=id_usuario, nombre=nombre, correo=correo, direccion=direccion, id_rol=rol_user.id_rol)
+        # Crear usuario con rol 'user'
+        u = Usuario(
+            id_usuario=id_usuario,
+            nombre=nombre,
+            correo=correo,
+            direccion=direccion,
+            id_rol='user'
+        )
         u.set_password(password)
         db.session.add(u)
         db.session.commit()
+
         flash('Registro exitoso. Ya puedes iniciar sesión.', 'success')
         return redirect(url_for('login'))
 
