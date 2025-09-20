@@ -1,6 +1,5 @@
 Flask>=2.2
 Flask-SQLAlchemy>=3.0
 Werkzeug>=2.2
-Flask-Mail: versión 0.10.0 
-PyPI
-itsdangerous: versión 2.2.0
+Flask-Mail==0.10.0
+itsdangerous==2.2.0
