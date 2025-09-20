@@ -7,11 +7,38 @@
   </div>
   <div class="col-md-6">
     <h1 class="mb-3">{{ product.name }}</h1>
-    <p class="text-muted mb-4">{{ product.desc }}</p>
+    <p class="text-muted mb-4">{{ product.desc }}</p> <!-- descripción fija definida por admin -->
     <h3 class="text-primary mb-4">${{ '%.2f'|format(product.price) }}</h3>
 
     {% if session.get('username') %}
       <form method="POST" action="{{ url_for('add_to_cart', pid=product.id) }}">
+        
+        <!-- Selección de talla -->
+        <div class="mb-3">
+          <label for="size" class="form-label">Talla</label>
+          <select class="form-select" id="size" name="size" required>
+            <option value="">Selecciona una talla</option>
+            <option value="XS">XS</option>
+            <option value="S">S</option>
+            <option value="M">M</option>
+            <option value="L">L</option>
+            <option value="XL">XL</option>
+          </select>
+        </div>
+
+        <!-- Selección de color -->
+        <div class="mb-3">
+          <label for="color" class="form-label">Color</label>
+          <select class="form-select" id="color" name="color" required>
+            <option value="">Selecciona un color</option>
+            <option value="Negro">Negro</option>
+            <option value="Blanco">Blanco</option>
+            <option value="Rojo">Rojo</option>
+            <option value="Azul">Azul</option>
+            <option value="Verde">Verde</option>
+          </select>
+        </div>
+
         <button type="submit" class="btn btn-primary btn-lg">Agregar al carrito</button>
       </form>
     {% else %}
