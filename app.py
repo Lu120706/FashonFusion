@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired
 import os
 
 # -----------------------
@@ -14,6 +16,17 @@ app.secret_key = os.urandom(24)
 base_dir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(base_dir, 'app.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Configuración de correo (usar Gmail u otro servidor SMTP)
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'fashonfusion140@gmail.com'      
+app.config['MAIL_PASSWORD'] = 'dojc batc puet hqdt'
+mail = Mail(app)
+
+# Serializador para tokens seguros
+s = URLSafeTimedSerializer(app.secret_key)
+
 
 db = SQLAlchemy(app)
 
@@ -111,41 +124,26 @@ def index():
     return render_template('index.html', products=PRODUCTS, carousel_images=CAROUSEL_IMAGES)
 
 # Registro público (rol 'user' por defecto)
-@app.route('/register', methods=['GET', 'POST'])
+@app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
-        # Obtener con .get para evitar excepciones si falta algún campo
-        id_usuario = request.form.get('id_usuario', '').strip()
-        nombre = request.form.get('nombre', '').strip()
-        correo = request.form.get('correo', '').strip()
-        direccion = request.form.get('direccion', '').strip()
-        password = request.form.get('password', '')
-        confirm = request.form.get('confirm_password', '')
+        id_usuario = request.form['id_usuario'].strip()
+        nombre = request.form['nombre'].strip()
+        correo = request.form['correo'].strip()
+        password = request.form['password']
+        confirm = request.form['confirm_password']
+        direccion = request.form.get('direccion','').strip()
 
-        # Validaciones básicas
-        if not id_usuario:
-            flash('Debes ingresar un usuario (ID).', 'danger')
-            return render_template('register.html')
-        if not nombre:
-            flash('Debes ingresar el nombre completo.', 'danger')
-            return render_template('register.html')
-        if not correo:
-            flash('Debes ingresar un correo electrónico.', 'danger')
-            return render_template('register.html')
-        if not password or not confirm:
-            flash('Debes ingresar la contraseña y confirmarla.', 'danger')
-            return render_template('register.html')
         if password != confirm:
-            flash('Las contraseñas no coinciden.', 'danger')
+            flash('Las contraseñas no coinciden', 'danger')
             return render_template('register.html')
 
-        # Comprobar unicidad id_usuario y correo
         if Usuario.query.filter_by(id_usuario=id_usuario).first():
-            flash('El ID de usuario ya está registrado. Elige otro.', 'danger')
+            flash('El id de usuario ya está registrado', 'danger')
             return render_template('register.html')
 
-        if Usuario.query.filter_by(correo=correo).first():
-            flash('El correo ya está registrado. Usa otro correo o inicia sesión.', 'danger')
+        if correo and Usuario.query.filter_by(correo=correo).first():
+            flash('El correo ya está registrado', 'danger')
             return render_template('register.html')
 
         # Asegurar que exista el rol 'user'
@@ -155,22 +153,13 @@ def register():
             db.session.add(rol_user)
             db.session.commit()
 
-        # Crear usuario
-        nuevo = Usuario(
-            id_usuario=id_usuario,
-            nombre=nombre,
-            correo=correo,
-            direccion=direccion,
-            id_rol=rol_user.id_rol
-        )
-        nuevo.set_password(password)  # genera hash
-        db.session.add(nuevo)
+        u = Usuario(id_usuario=id_usuario, nombre=nombre, correo=correo, direccion=direccion, id_rol=rol_user.id_rol)
+        u.set_password(password)
+        db.session.add(u)
         db.session.commit()
-
         flash('Registro exitoso. Ya puedes iniciar sesión.', 'success')
         return redirect(url_for('login'))
 
-    # GET
     return render_template('register.html')
 
 # Login
@@ -202,6 +191,64 @@ def logout():
     return redirect(url_for('index'))
 
 # -----------------------
+# Recuperación de contraseña
+# -----------------------
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['email'].strip()
+        user = Usuario.query.filter_by(correo=email).first()
+
+        if not user:
+            flash('No existe un usuario con ese correo', 'danger')
+            return render_template('forgot_password.html')
+
+        # Generar token
+        token = s.dumps(email, salt='reset-salt')
+        link = url_for('reset_password', token=token, _external=True)
+
+        # Enviar correo
+        msg = Message('Recupera tu contraseña',
+                      sender=app.config['MAIL_USERNAME'],
+                      recipients=[email])
+        msg.body = f'Usa este enlace para resetear tu contraseña: {link}'
+        mail.send(msg)
+
+        flash('Se envió un enlace a tu correo para recuperar la contraseña.', 'info')
+        return redirect(url_for('login'))
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try:
+        email = s.loads(token, salt='reset-salt', max_age=3600)  # válido 1 hora
+    except SignatureExpired:
+        flash('El enlace expiró, solicita uno nuevo.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        new_password = request.form['password']
+        confirm = request.form['confirm_password']
+
+        if new_password != confirm:
+            flash('Las contraseñas no coinciden', 'danger')
+            return render_template('reset_password.html', token=token)
+
+        user = Usuario.query.filter_by(correo=email).first()
+        if not user:
+            flash('Usuario no encontrado', 'danger')
+            return redirect(url_for('forgot_password'))
+
+        user.set_password(new_password)
+        db.session.commit()
+
+        flash('Tu contraseña fue actualizada. Ya puedes iniciar sesión.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html', token=token)
+
+# -----------------------
 # Productos / carrito
 # -----------------------
 @app.route('/product/<int:pid>')
@@ -210,8 +257,6 @@ def product(pid):
     if not p:
         abort(404)
     return render_template('product.html', product=p)
-
-    
 
 @app.route('/cart')
 @login_required
@@ -344,4 +389,4 @@ def create_default_data():
 if __name__ == '__main__':
     with app.app_context():
         create_default_data()
-    app.run(debug=True)
+    app.run(debug=True) 
