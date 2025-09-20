@@ -114,17 +114,29 @@ def index():
 @app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
-        id_usuario = request.form['id_usuario'].strip()
-        nombre = request.form['nombre'].strip()
-        correo = request.form['correo'].strip()
-        password = request.form['password']
-        confirm = request.form['confirm_password']
-        direccion = request.form.get('direccion','').strip()
+        # use .get() para evitar excepciones si falta el campo
+        id_usuario = request.form.get('id_usuario', '').strip()
+        nombre = request.form.get('nombre', '').strip()
+        correo = request.form.get('correo', '').strip()
+        password = request.form.get('password', '')
+        confirm = request.form.get('confirm_password', '')
+        direccion = request.form.get('direccion', '').strip()
 
+        # validaciones básicas
+        if not id_usuario:
+            flash('Debes ingresar un ID de usuario.', 'danger')
+            return render_template('register.html')
+        if not nombre:
+            flash('Debes ingresar un nombre.', 'danger')
+            return render_template('register.html')
+        if not password or not confirm:
+            flash('Debes ingresar la contraseña y confirmarla.', 'danger')
+            return render_template('register.html')
         if password != confirm:
             flash('Las contraseñas no coinciden', 'danger')
             return render_template('register.html')
 
+        # seguir con el resto de la lógica (existencia, creación, etc.)
         if Usuario.query.filter_by(id_usuario=id_usuario).first():
             flash('El id de usuario ya está registrado', 'danger')
             return render_template('register.html')

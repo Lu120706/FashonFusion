@@ -8,10 +8,10 @@
         <div class="card shadow-sm">
             <div class="card-body">
                 <h2 class="card-title text-center mb-4">Crear Cuenta</h2>
-                <form method="POST">
+                <form method="POST" action="{{ url_for('register') }}">
                     <div class="mb-3">
                         <label for="username" class="form-label">Usuario</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
+                        <input class="form-control" name="id_usuario" required>
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">Contraseña</label>
