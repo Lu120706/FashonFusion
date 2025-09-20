@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }} · Marca Ropa{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-md-6">
+    <img src="{{ product.image }}" alt="{{ product.name }}" class="img-fluid rounded shadow-sm">
+  </div>
+  <div class="col-md-6">
+    <h1 class="mb-3">{{ product.name }}</h1>
+    <p class="text-muted mb-4">{{ product.desc }}</p>
+    <h3 class="text-primary mb-4">${{ '%.2f'|format(product.price) }}</h3>
+
+    {% if session.get('username') %}
+      <form method="POST" action="{{ url_for('add_to_cart', pid=product.id) }}">
+        <button type="submit" class="btn btn-primary btn-lg">Agregar al carrito</button>
+      </form>
+    {% else %}
+      <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Inicia sesión para comprar</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
