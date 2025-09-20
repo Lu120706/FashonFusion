@@ -187,6 +187,8 @@ def product(pid):
         abort(404)
     return render_template('product.html', product=p)
 
+    
+
 @app.route('/cart')
 @login_required
 def cart():

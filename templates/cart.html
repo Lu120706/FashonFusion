@@ -1,59 +1,48 @@
 {% extends "base.html" %}
-
-{% block title %}Carrito - Marca Ropa{% endblock %}
-
+{% block title %}Carrito{% endblock %}
 {% block content %}
-<h2 class="mb-4">Tu Carrito</h2>
+<div class="container mt-5">
+  <div class="card shadow-lg border rounded-3">
+    <div class="card-body">
+      <h2 class="mb-4 text-center">🛒 Carrito de Compras</h2>
 
-{% if cart %}
-    <div class="table-responsive">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Producto</th>
-                    <th>Precio</th>
-                    <th>Cantidad</th>
-                    <th>Total</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in cart %}
-                <tr>
-                    <td>
-                        <img src="{{ item.image }}" alt="{{ item.name }}" class="img-thumbnail me-2" style="width: 50px; height: 50px; object-fit: cover;">
-                        {{ item.name }}
-                    </td>
-                    <td>${{ '%.2f'|format(item.price) }}</td>
-                    <td>1</td>
-                    <td>${{ '%.2f'|format(item.price) }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('remove_from_cart', product_id=item.id) }}" style="display: inline;">
-                            <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                    <td colspan="2"><strong>${{ '%.2f'|format(total) }}</strong></td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-    
-    <div class="d-flex justify-content-between align-items-center mt-4">
-        <a href="/" class="btn btn-secondary">Seguir Comprando</a>
-        <form method="POST" action="{{ url_for('checkout') }}">
-            <button type="submit" class="btn btn-primary">Proceder al Pago</button>
+      {% if cart %}
+      <table class="table table-bordered align-middle">
+        <thead class="table-light">
+          <tr class="text-center">
+            <th>Producto</th>
+            <th>Precio</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in cart %}
+          <tr>
+            <td>
+              <img src="{{ item.image }}" alt="{{ item.name }}" style="width: 60px; height: auto; margin-right: 10px;">
+              {{ item.name }}
+            </td>
+            <td class="text-center">${{ "%.2f"|format(item.price) }}</td>
+            <td class="text-center">
+              <form action="{{ url_for('remove_from_cart', product_id=item.id) }}" method="POST">
+                <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="d-flex justify-content-between align-items-center mt-4">
+        <h4>Total: <span class="text-success">${{ "%.2f"|format(total) }}</span></h4>
+        <form action="{{ url_for('checkout') }}" method="POST">
+          <button type="submit" class="btn btn-success">Proceder al pago</button>
         </form>
+      </div>
+      {% else %}
+      <p class="text-center text-muted">Tu carrito está vacío.</p>
+      {% endif %}
     </div>
-{% else %}
-    <div class="text-center my-5">
-        <p class="text-muted">Tu carrito está vacío</p>
-        <a href="/" class="btn btn-primary">Ir a Comprar</a>
-    </div>
-{% endif %}
+  </div>
+</div>
 {% endblock %}
