@@ -111,63 +111,66 @@ def index():
     return render_template('index.html', products=PRODUCTS, carousel_images=CAROUSEL_IMAGES)
 
 # Registro público (rol 'user' por defecto)
-# Registro público (rol 'user' por defecto)
-@app.route('/register', methods=['GET','POST'])
+@app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        # use .get() para evitar excepciones si falta el campo
+        # Obtener con .get para evitar excepciones si falta algún campo
         id_usuario = request.form.get('id_usuario', '').strip()
         nombre = request.form.get('nombre', '').strip()
         correo = request.form.get('correo', '').strip()
+        direccion = request.form.get('direccion', '').strip()
         password = request.form.get('password', '')
         confirm = request.form.get('confirm_password', '')
-        direccion = request.form.get('direccion', '').strip()
 
-        # validaciones básicas
+        # Validaciones básicas
         if not id_usuario:
-            flash('Debes ingresar un ID de usuario.', 'danger')
+            flash('Debes ingresar un usuario (ID).', 'danger')
             return render_template('register.html')
         if not nombre:
-            flash('Debes ingresar un nombre.', 'danger')
+            flash('Debes ingresar el nombre completo.', 'danger')
+            return render_template('register.html')
+        if not correo:
+            flash('Debes ingresar un correo electrónico.', 'danger')
             return render_template('register.html')
         if not password or not confirm:
             flash('Debes ingresar la contraseña y confirmarla.', 'danger')
             return render_template('register.html')
         if password != confirm:
-            flash('Las contraseñas no coinciden', 'danger')
+            flash('Las contraseñas no coinciden.', 'danger')
             return render_template('register.html')
 
-        # verificar duplicados
+        # Comprobar unicidad id_usuario y correo
         if Usuario.query.filter_by(id_usuario=id_usuario).first():
-            flash('El id de usuario ya está registrado', 'danger')
+            flash('El ID de usuario ya está registrado. Elige otro.', 'danger')
             return render_template('register.html')
 
-        if correo and Usuario.query.filter_by(correo=correo).first():
-            flash('El correo ya está registrado', 'danger')
+        if Usuario.query.filter_by(correo=correo).first():
+            flash('El correo ya está registrado. Usa otro correo o inicia sesión.', 'danger')
             return render_template('register.html')
 
-        # Rol fijo: siempre será 'user'
+        # Asegurar que exista el rol 'user'
         rol_user = Rol.query.filter_by(id_rol='user').first()
         if not rol_user:
             rol_user = Rol(id_rol='user', nombre='Usuario')
             db.session.add(rol_user)
             db.session.commit()
 
-        # Crear usuario con rol 'user'
-        u = Usuario(
+        # Crear usuario
+        nuevo = Usuario(
             id_usuario=id_usuario,
             nombre=nombre,
             correo=correo,
             direccion=direccion,
-            id_rol='user'
+            id_rol=rol_user.id_rol
         )
-        u.set_password(password)
-        db.session.add(u)
+        nuevo.set_password(password)  # genera hash
+        db.session.add(nuevo)
         db.session.commit()
 
         flash('Registro exitoso. Ya puedes iniciar sesión.', 'success')
         return redirect(url_for('login'))
 
+    # GET
     return render_template('register.html')
 
 # Login
