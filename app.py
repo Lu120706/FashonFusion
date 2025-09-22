@@ -1,52 +1,74 @@
+import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired
-import os
+from sqlalchemy import or_
+import logging
 
 # -----------------------
 # Configuración
 # -----------------------
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
 
-# SQLite por defecto (fácil de probar). Cambia a MySQL si quieres.
-base_dir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(base_dir, 'app.db')
+# SECRET_KEY: usa variable de entorno en lugar de hardcodear
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24))
+
+# -----------------------
+# Base de datos: MySQL (XAMPP) por defecto
+# -----------------------
+DB_USER = os.environ.get('DB_USER', 'root')
+DB_PASS = os.environ.get('DB_PASS', '')
+DB_HOST = os.environ.get('DB_HOST', 'localhost')
+DB_NAME = os.environ.get('DB_NAME', 'fashion_fusion')
+
+# URI para SQLAlchemy (usando PyMySQL)
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}'
+# Si quieres probar con sqlite local, descomenta las siguientes two líneas:
+# base_dir = os.path.abspath(os.path.dirname(__file__))
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(base_dir, 'app.db')
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# Configuración de correo (usar Gmail u otro servidor SMTP)
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'fashonfusion140@gmail.com'      
-app.config['MAIL_PASSWORD'] = 'dojc batc puet hqdt'
+app.config['SQLALCHEMY_ECHO'] = os.environ.get('SQLALCHEMY_ECHO', 'False').lower() in ('1','true','yes')
+
+# -----------------------
+# Configuración de correo (usar variables de entorno)
+# -----------------------
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() in ('1','true','yes')
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')    # e.g. fashonfusion140@gmail.com
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')    # usa variable de entorno, NO hardcodear
+
 mail = Mail(app)
 
 # Serializador para tokens seguros
-s = URLSafeTimedSerializer(app.secret_key)
+s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
+# Logger básico
+logging.basicConfig(level=logging.INFO)
 
 db = SQLAlchemy(app)
 
 # -----------------------
-# Modelos
+# Modelos (sin cambiar estructura)
 # -----------------------
 class Rol(db.Model):
     __tablename__ = 'rol'
-    id_rol = db.Column(db.String(50), primary_key=True)
-    nombre = db.Column(db.String(50), nullable=False)
+    id_rol = db.Column(db.String(1), primary_key=True)   # se respeta VARCHAR(1) existente
+    nombre = db.Column(db.String(25), nullable=False)
     fecha_registro = db.Column(db.DateTime, server_default=db.func.now())
 
 class Usuario(db.Model):
     __tablename__ = 'usuarios'
-    id_usuario = db.Column(db.String(50), primary_key=True)
+    id_usuario = db.Column(db.String(15), primary_key=True)
     nombre = db.Column(db.String(150), nullable=False)
     correo = db.Column(db.String(150), unique=True)
     contrasena = db.Column(db.String(255))
-    direccion = db.Column(db.String(255))
-    id_rol = db.Column(db.String(50), db.ForeignKey('rol.id_rol'))
+    direccion = db.Column(db.String(255))  # en la BD actual puede ser NOT NULL; al crear usaremos '' si es necesario
+    id_rol = db.Column(db.String(1), db.ForeignKey('rol.id_rol'))  # FK a varchar(1)
     creado_en = db.Column(db.DateTime, server_default=db.func.now())
     actualizado_en = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 
@@ -94,6 +116,9 @@ def login_required(f):
     return decorated
 
 def role_required(allowed_role):
+    """
+    Permite comprobar permisos tanto por id corto (ej 'a') como por nombre ('admin').
+    """
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
@@ -101,12 +126,62 @@ def role_required(allowed_role):
                 flash('Debes iniciar sesión', 'warning')
                 return redirect(url_for('login'))
             role = session.get('role')
-            if role != allowed_role:
-                flash('No tienes permisos para acceder a esta página', 'danger')
-                return redirect(url_for('index'))
-            return f(*args, **kwargs)
+            # Comparación directa
+            if role == allowed_role:
+                return f(*args, **kwargs)
+            # Comprobación por tabla: podemos aceptar si role coincide con el id de allowed_role
+            r_allowed = Rol.query.filter(or_(Rol.id_rol == allowed_role, Rol.nombre.ilike(f"%{allowed_role}%"))).first()
+            if r_allowed and role == r_allowed.id_rol:
+                return f(*args, **kwargs)
+            flash('No tienes permisos para acceder a esta página', 'danger')
+            return redirect(url_for('index'))
         return decorated
     return decorator
+
+# -----------------------
+# Helper: encontrar/crear rol compatible con esquema actual (varchar(1))
+# -----------------------
+def find_or_create_role(key):
+    """
+    Busca un rol usando:
+      1) id_rol == key
+      2) nombre ILIKE %key%
+      3) id_rol == first_char_of_key (compatibilidad VARCHAR(1))
+    Si no existe, intenta crear usando first_char_of_key como id_rol.
+    Retorna el objeto Rol o None si no fue posible.
+    """
+    if not key:
+        return None
+    key = str(key).strip()
+    # 1) Buscar por id exacto
+    r = Rol.query.filter_by(id_rol=key).first()
+    if r:
+        return r
+    # 2) Buscar por nombre
+    try:
+        r = Rol.query.filter(Rol.nombre.ilike(f"%{key}%")).first()
+        if r:
+            return r
+    except Exception:
+        pass
+
+    # 3) Intentar con la primera letra (compatibilidad con varchar(1))
+    short_id = key[0].lower()
+    r = Rol.query.filter_by(id_rol=short_id).first()
+    if r:
+        return r
+
+    # 4) Crear uno nuevo usando short_id como id_rol (manejar duplicados)
+    new_name = key.capitalize()
+    new = Rol(id_rol=short_id, nombre=new_name)
+    db.session.add(new)
+    try:
+        db.session.commit()
+        return new
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"find_or_create_role: no se pudo crear rol '{short_id}': {e}")
+        return Rol.query.filter_by(id_rol=short_id).first()
 
 # -----------------------
 # Context processor (inyecta year globalmente)
@@ -120,7 +195,6 @@ def inject_year():
 # -----------------------
 @app.route('/')
 def index():
-    # Pasamos tanto productos como las imágenes del carrusel
     return render_template('index.html', products=PRODUCTS, carousel_images=CAROUSEL_IMAGES)
 
 # Registro público (rol 'user' por defecto)
@@ -146,17 +220,26 @@ def register():
             flash('El correo ya está registrado', 'danger')
             return render_template('register.html')
 
-        # Asegurar que exista el rol 'user'
-        rol_user = Rol.query.filter_by(id_rol='user').first()
+        # Asegurar que exista el rol 'user' (adaptado al esquema actual)
+        rol_user = find_or_create_role('user')
         if not rol_user:
-            rol_user = Rol(id_rol='user', nombre='Usuario')
-            db.session.add(rol_user)
-            db.session.commit()
+            flash('Error creando rol de usuario', 'danger')
+            return render_template('register.html')
 
-        u = Usuario(id_usuario=id_usuario, nombre=nombre, correo=correo, direccion=direccion, id_rol=rol_user.id_rol)
+        # Asegurar direccion no nula (si tu columna no acepta NULL)
+        direccion_db = direccion if direccion is not None else ''
+
+        u = Usuario(id_usuario=id_usuario, nombre=nombre, correo=correo, direccion=direccion_db, id_rol=rol_user.id_rol)
         u.set_password(password)
         db.session.add(u)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error al guardar usuario: {e}")
+            flash(f'Error al guardar el usuario: {e}', 'danger')
+            return render_template('register.html')
+
         flash('Registro exitoso. Ya puedes iniciar sesión.', 'success')
         return redirect(url_for('login'))
 
@@ -171,7 +254,7 @@ def login():
         user = Usuario.query.filter_by(id_usuario=username).first()
         if user and user.check_password(password):
             session['username'] = user.id_usuario
-            session['role'] = user.id_rol  # 'admin' o 'user'
+            session['role'] = user.id_rol  # puede ser 'a' o 'u' según tu tabla
             # inicializar carrito en memoria
             if username not in SHOPPING_CARTS:
                 SHOPPING_CARTS[username] = []
@@ -209,15 +292,19 @@ def forgot_password():
 
         # Enviar correo
         msg = Message('Recupera tu contraseña',
-                      sender=app.config['MAIL_USERNAME'],
+                      sender=app.config.get('MAIL_USERNAME'),
                       recipients=[email])
         msg.body = f'Usa este enlace para resetear tu contraseña: {link}'
-        mail.send(msg)
+        try:
+            mail.send(msg)
+        except Exception as e:
+            app.logger.error(f"Error enviando correo: {e}")
+            flash(f'Error enviando correo: {e}', 'danger')
+            return render_template('forgot_password.html')
 
         flash('Se envió un enlace a tu correo para recuperar la contraseña.', 'info')
         return redirect(url_for('login'))
     return render_template('forgot_password.html')
-
 
 @app.route('/reset_password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
@@ -241,7 +328,12 @@ def reset_password(token):
             return redirect(url_for('forgot_password'))
 
         user.set_password(new_password)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error actualizando contraseña: {e}', 'danger')
+            return render_template('reset_password.html', token=token)
 
         flash('Tu contraseña fue actualizada. Ya puedes iniciar sesión.', 'success')
         return redirect(url_for('login'))
@@ -272,8 +364,6 @@ def add_to_cart(pid):
     if product:
         size = request.form.get("size")
         color = request.form.get("color")
-
-        # clonamos el producto para no modificar el original
         item = {
             "id": product["id"],
             "name": product["name"],
@@ -282,7 +372,6 @@ def add_to_cart(pid):
             "size": size,
             "color": color
         }
-
         session.setdefault('cart', [])
         session['cart'].append(item)
         session.modified = True
@@ -329,17 +418,27 @@ def admin_create_user():
             flash('El id de usuario ya existe', 'danger')
             return render_template('admin_user_form.html', action='Crear', user=None)
 
-        # crear rol si no existe
-        r = Rol.query.filter_by(id_rol=role).first()
+        r = find_or_create_role(role)
         if not r:
-            r = Rol(id_rol=role, nombre=role.capitalize())
-            db.session.add(r)
-            db.session.commit()
+            flash('Error creando o encontrando el rol', 'danger')
+            return render_template('admin_user_form.html', action='Crear', user=None)
 
-        u = Usuario(id_usuario=id_usuario, nombre=nombre, correo=correo, id_rol=role)
+        # asegurar direccion no nula al crear
+        direccion_db = request.form.get('direccion','').strip()
+        if direccion_db is None:
+            direccion_db = ''
+
+        u = Usuario(id_usuario=id_usuario, nombre=nombre, correo=correo, id_rol=r.id_rol, direccion=direccion_db)
         u.set_password(password)
         db.session.add(u)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error creando usuario admin: {e}")
+            flash(f'Error creando usuario: {e}', 'danger')
+            return render_template('admin_user_form.html', action='Crear', user=None)
+
         flash('Usuario creado', 'success')
         return redirect(url_for('admin_users'))
 
@@ -356,7 +455,12 @@ def admin_edit_user(id_usuario):
         user.id_rol = request.form.get('role','user').strip()
         if new_password:
             user.set_password(new_password)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error actualizando usuario: {e}', 'danger')
+            return render_template('admin_user_form.html', action='Editar', user=user)
         flash('Usuario actualizado', 'success')
         return redirect(url_for('admin_users'))
     return render_template('admin_user_form.html', action='Editar', user=user)
@@ -364,14 +468,18 @@ def admin_edit_user(id_usuario):
 @app.route('/admin/users/delete/<string:id_usuario>', methods=['POST'])
 @role_required('admin')
 def admin_delete_user(id_usuario):
-    # evitar eliminarse a sí mismo
     if id_usuario == session.get('username'):
         flash('No puedes eliminarte a ti mismo', 'warning')
         return redirect(url_for('admin_users'))
     u = Usuario.query.get(id_usuario)
     if u:
         db.session.delete(u)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error eliminando usuario: {e}', 'danger')
+            return redirect(url_for('admin_users'))
         flash('Usuario eliminado', 'success')
     else:
         flash('Usuario no encontrado', 'danger')
@@ -381,25 +489,59 @@ def admin_delete_user(id_usuario):
 # Inicializador: crear tablas, roles y admin por defecto
 # -----------------------
 def create_default_data():
-    db.create_all()
-    # crear roles si no existen
-    if not Rol.query.filter_by(id_rol='admin').first():
-        db.session.add(Rol(id_rol='admin', nombre='Administrador'))
-    if not Rol.query.filter_by(id_rol='user').first():
-        db.session.add(Rol(id_rol='user', nombre='Usuario'))
-    db.session.commit()
+    try:
+        db.create_all()
+    except Exception as e:
+        app.logger.error(f"Error creando tablas: {e}")
+        return
 
-    # crear admin por defecto si no existe
-    if not Usuario.query.filter_by(id_usuario='admin').first():
-        admin = Usuario(id_usuario='admin', nombre='Administrador', correo='admin@example.com', id_rol='admin')
-        admin.set_password('admin123')  # CAMBIA esta contraseña al desplegar
-        db.session.add(admin)
-        db.session.commit()
+    # Crear roles compatibles con el esquema (usar short ids si la tabla espera varchar(1))
+    try:
+        find_or_create_role('admin')   # intentará 'a' si la DB es varchar(1)
+        find_or_create_role('user')    # intentará 'u'
+    except Exception as e:
+        app.logger.error(f"Error creando roles por defecto: {e}")
+
+    # Crear admin por defecto, asegurando direccion no nula
+    try:
+        admin_user = Usuario.query.filter_by(id_usuario='admin').first()
+        if not admin_user:
+            rol_admin = find_or_create_role('admin')
+            role_id = rol_admin.id_rol if rol_admin else 'a'  # fallback 'a'
+            admin = Usuario(
+                id_usuario='admin',
+                nombre='Administrador',
+                correo='admin@example.com',
+                id_rol=role_id,
+                direccion=''   # evitar NULL
+            )
+            admin.set_password('admin123')  # CAMBIA esta contraseña al desplegar
+            db.session.add(admin)
+            try:
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                app.logger.error(f"Error creando admin por defecto: {e}")
+    except Exception as e:
+        app.logger.error(f"Error creando admin por defecto (outer): {e}")
+
+# Ruta útil para debug: confirmar qué base de datos está usando la app
+@app.route('/debug/dbinfo')
+def debug_dbinfo():
+    try:
+        engine_url = str(db.engine.url)
+    except Exception as e:
+        engine_url = f"Error obteniendo engine url: {e}"
+    return {"engine": engine_url}
 
 # -----------------------
 # Ejecutar app
 # -----------------------
 if __name__ == '__main__':
+    # Antes de correr, asegúrate:
+    # 1) Crear la base de datos 'fashion_fusion' en phpMyAdmin
+    # 2) Instalar PyMySQL: pip install PyMySQL
+    # 3) Poner variables de entorno DB_USER/DB_PASS si usas credenciales diferentes
     with app.app_context():
         create_default_data()
-    app.run(debug=True) 
+    app.run(debug=True)
