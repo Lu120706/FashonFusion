@@ -196,7 +196,7 @@ def logout():
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
-        email = request.form['email'].strip()
+        email = request.form.get('email', '').strip()
         user = Usuario.query.filter_by(correo=email).first()
 
         if not user:
