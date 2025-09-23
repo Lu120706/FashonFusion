@@ -204,9 +204,27 @@ def find_or_create_role(key):
 # -----------------------
 # Context processor (inyecta year globalmente)
 # -----------------------
+# -----------------------
+# Context processor (inyecta year, is_admin y current_user globalmente)
+# -----------------------
 @app.context_processor
-def inject_year():
-    return {"year": 2025}
+def inject_globals():
+    year = 2025
+    role = session.get('role')
+    is_admin = False
+    if role:
+        # acepta tanto el id corto ('a') como el nombre completo ('admin')
+        if role in ('a', 'admin'):
+            is_admin = True
+        else:
+            try:
+                r = Rol.query.filter(Rol.nombre.ilike('%admin%')).first()
+                if r and role == r.id_rol:
+                    is_admin = True
+            except Exception:
+                pass
+    return {"year": year, "is_admin": is_admin, "current_user": session.get('username')}
+
 
 # -----------------------
 # Rutas principales
