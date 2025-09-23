@@ -38,9 +38,10 @@
 
                 {% if session.get('username') %}
                     {# Mostrar link admin solo si el rol en sesión es 'admin' #}
-                    {% if session.get('role') == 'admin' %}
-                        <a href="{{ url_for('admin_users') }}" class="text-white text-decoration-none me-3">Admin: usuarios</a>
-                    {% endif %}
+                    {# Mostrar link admin si session.role es el id corto 'a' O el literal 'admin' #}
+                {% if session.get('role') in ['a', 'admin'] %}
+                    <a href="{{ url_for('admin_users') }}" class="text-white text-decoration-none me-3">Admin: usuarios</a>
+                {% endif %}
                     <span class="text-white me-3">Hola, {{ session['username'] }}</span>
                     <a href="{{ url_for('logout') }}" class="text-white text-decoration-none">Cerrar sesión</a>
                 {% else %}

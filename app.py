@@ -117,7 +117,10 @@ def login_required(f):
 
 def role_required(allowed_role):
     """
-    Permite comprobar permisos tanto por id corto (ej 'a') como por nombre ('admin').
+    Decorador que acepta 'allowed_role' como:
+      - el id corto (ej. 'a' / 'u') almacenado en la tabla rol.id_rol, o
+      - el nombre descriptivo (ej. 'admin', 'user').
+    Resuelve allowed_role con find_or_create_role() y compara contra session['role'].
     """
     def decorator(f):
         @wraps(f)
@@ -125,14 +128,28 @@ def role_required(allowed_role):
             if 'username' not in session:
                 flash('Debes iniciar sesión', 'warning')
                 return redirect(url_for('login'))
-            role = session.get('role')
-            # Comparación directa
-            if role == allowed_role:
+
+            # Valor actual de la sesión (puede ser 'a' o 'admin' dependiendo de cómo se guardó)
+            current_role = session.get('role')
+
+            # Si coincide textualmente, dejamos pasar (caso simple)
+            if current_role == allowed_role:
                 return f(*args, **kwargs)
-            # Comprobación por tabla: podemos aceptar si role coincide con el id de allowed_role
-            r_allowed = Rol.query.filter(or_(Rol.id_rol == allowed_role, Rol.nombre.ilike(f"%{allowed_role}%"))).first()
-            if r_allowed and role == r_allowed.id_rol:
-                return f(*args, **kwargs)
+
+            # Intentamos resolver allowed_role a su id real en la tabla rol
+            try:
+                resolved = find_or_create_role(allowed_role)
+                if resolved and current_role == resolved.id_rol:
+                    return f(*args, **kwargs)
+            except Exception:
+                # Si falla la consulta, intentamos una comprobación por nombre parcial
+                try:
+                    r = Rol.query.filter(Rol.nombre.ilike(f"%{allowed_role}%")).first()
+                    if r and current_role == r.id_rol:
+                        return f(*args, **kwargs)
+                except Exception:
+                    pass
+
             flash('No tienes permisos para acceder a esta página', 'danger')
             return redirect(url_for('index'))
         return decorated
@@ -249,18 +266,20 @@ def register():
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username'].strip()
-        password = request.form['password']
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
         user = Usuario.query.filter_by(id_usuario=username).first()
         if user and user.check_password(password):
+            # Guardar sólo lo necesario en session
             session['username'] = user.id_usuario
-            session['role'] = user.id_rol  # puede ser 'a' o 'u' según tu tabla
-            # inicializar carrito en memoria
+            session['role'] = user.id_rol  # p.ej. 'a' o 'u'
+            app.logger.info(f"Usuario logueado: {user.id_usuario} role: {user.id_rol}")
+            # inicializar carrito en memoria si no existe
             if username not in SHOPPING_CARTS:
                 SHOPPING_CARTS[username] = []
             session['cart'] = SHOPPING_CARTS[username]
             flash('¡Bienvenido!', 'success')
-            return redirect(url_for('index'))
+            return redirect(url_for('admin_users') if user.id_rol == 'a' else url_for('index'))
         flash('Usuario o contraseña incorrectos', 'danger')
     return render_template('login.html')
 
@@ -412,21 +431,20 @@ def admin_create_user():
         nombre = request.form['nombre'].strip()
         correo = request.form['correo'].strip()
         password = request.form['password']
-        role = request.form.get('role','user').strip()
+        role = request.form.get('role')  # aquí será el id_rol (ej 'a' o 'u')
+        direccion_db = request.form.get('direccion','').strip() or ''
 
         if Usuario.query.filter_by(id_usuario=id_usuario).first():
             flash('El id de usuario ya existe', 'danger')
-            return render_template('admin_user_form.html', action='Crear', user=None)
+            roles = Rol.query.all()
+            return render_template('admin_user_form.html', action='Crear', user=None, roles=roles)
 
-        r = find_or_create_role(role)
+        # Verificamos que el role exista
+        r = Rol.query.filter_by(id_rol=role).first()
         if not r:
-            flash('Error creando o encontrando el rol', 'danger')
-            return render_template('admin_user_form.html', action='Crear', user=None)
-
-        # asegurar direccion no nula al crear
-        direccion_db = request.form.get('direccion','').strip()
-        if direccion_db is None:
-            direccion_db = ''
+            flash('Rol seleccionado no existe', 'danger')
+            roles = Rol.query.all()
+            return render_template('admin_user_form.html', action='Crear', user=None, roles=roles)
 
         u = Usuario(id_usuario=id_usuario, nombre=nombre, correo=correo, id_rol=r.id_rol, direccion=direccion_db)
         u.set_password(password)
@@ -437,33 +455,71 @@ def admin_create_user():
             db.session.rollback()
             app.logger.error(f"Error creando usuario admin: {e}")
             flash(f'Error creando usuario: {e}', 'danger')
-            return render_template('admin_user_form.html', action='Crear', user=None)
+            roles = Rol.query.all()
+            return render_template('admin_user_form.html', action='Crear', user=None, roles=roles)
 
         flash('Usuario creado', 'success')
         return redirect(url_for('admin_users'))
 
-    return render_template('admin_user_form.html', action='Crear', user=None)
+    # GET: pasar lista de roles real
+    roles = Rol.query.all()
+    return render_template('admin_user_form.html', action='Crear', user=None, roles=roles)
 
+
+# -----------------------
+# Editar usuario (admin)
+# -----------------------
 @app.route('/admin/users/edit/<string:id_usuario>', methods=['GET','POST'])
 @role_required('admin')
 def admin_edit_user(id_usuario):
     user = Usuario.query.get_or_404(id_usuario)
+
     if request.method == 'POST':
-        user.nombre = request.form['nombre'].strip()
-        user.correo = request.form['correo'].strip()
+        nombre = request.form['nombre'].strip()
+        correo = request.form['correo'].strip()
         new_password = request.form.get('password','').strip()
-        user.id_rol = request.form.get('role','user').strip()
+        role = request.form.get('role')  # id_rol seleccionado
+        direccion_db = request.form.get('direccion','').strip() or ''
+
+        # Validaciones mínimas
+        if correo:
+            # evitar duplicar correos: si existe otro usuario con ese correo
+            other = Usuario.query.filter(Usuario.correo == correo, Usuario.id_usuario != id_usuario).first()
+            if other:
+                flash('El correo ya está en uso por otro usuario', 'danger')
+                roles = Rol.query.all()
+                return render_template('admin_user_form.html', action='Editar', user=user, roles=roles)
+
+        user.nombre = nombre
+        user.correo = correo
+        user.direccion = direccion_db
+
+        # comprobar role
+        r = Rol.query.filter_by(id_rol=role).first()
+        if not r:
+            flash('Rol seleccionado no existe', 'danger')
+            roles = Rol.query.all()
+            return render_template('admin_user_form.html', action='Editar', user=user, roles=roles)
+        user.id_rol = r.id_rol
+
         if new_password:
             user.set_password(new_password)
+
         try:
             db.session.commit()
         except Exception as e:
             db.session.rollback()
+            app.logger.error(f"Error actualizando usuario: {e}")
             flash(f'Error actualizando usuario: {e}', 'danger')
-            return render_template('admin_user_form.html', action='Editar', user=user)
+            roles = Rol.query.all()
+            return render_template('admin_user_form.html', action='Editar', user=user, roles=roles)
+
         flash('Usuario actualizado', 'success')
         return redirect(url_for('admin_users'))
-    return render_template('admin_user_form.html', action='Editar', user=user)
+
+    # GET: pasar lista de roles real
+    roles = Rol.query.all()
+    return render_template('admin_user_form.html', action='Editar', user=user, roles=roles)
 
 @app.route('/admin/users/delete/<string:id_usuario>', methods=['POST'])
 @role_required('admin')
@@ -534,6 +590,22 @@ def debug_dbinfo():
         engine_url = f"Error obteniendo engine url: {e}"
     return {"engine": engine_url}
 
+# Rutas temporales de debug (borra/limita después de usarlas)
+@app.route('/debug/list_roles')
+def debug_list_roles():
+    try:
+        rows = [{"id_rol": r.id_rol, "nombre": r.nombre} for r in Rol.query.all()]
+        return {"roles": rows}
+    except Exception as e:
+        return {"error": str(e)}
+    
+@app.route('/debug/session')
+def debug_session():
+    return {
+        "username": session.get('username'),
+        "role": session.get('role')
+    }
+    
 # -----------------------
 # Ejecutar app
 # -----------------------

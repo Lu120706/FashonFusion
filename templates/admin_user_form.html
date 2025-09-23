@@ -2,6 +2,7 @@
 {% block title %}{{ action }} usuario{% endblock %}
 {% block content %}
 <h2>{{ action }} usuario</h2>
+
 <form method="POST">
   <div class="mb-3">
     <label class="form-label">ID usuario</label>
@@ -23,6 +24,11 @@
   </div>
 
   <div class="mb-3">
+    <label class="form-label">Dirección</label>
+    <input class="form-control" name="direccion" value="{{ user.direccion if user else '' }}">
+  </div>
+
+  <div class="mb-3">
     <label class="form-label">Contraseña {% if user %}<small class="text-muted">(dejar vacío para no cambiar)</small>{% endif %}</label>
     <input class="form-control" type="password" name="password" {% if not user %}required{% endif %}>
   </div>
@@ -30,8 +36,13 @@
   <div class="mb-3">
     <label class="form-label">Rol</label>
     <select class="form-select" name="role" required>
-      <option value="user" {% if (user and user.id_rol=='user') or (not user) %}selected{% endif %}>User</option>
-      <option value="admin" {% if user and user.id_rol=='admin' %}selected{% endif %}>Admin</option>
+      {% for rol in roles %}
+        <option value="{{ rol.id_rol }}"
+          {% if user and user.id_rol == rol.id_rol %}selected{% endif %}
+          {% if not user and rol.nombre|lower == 'usuario' %}selected{% endif %}>
+          {{ rol.nombre }}
+        </option>
+      {% endfor %}
     </select>
   </div>
 
