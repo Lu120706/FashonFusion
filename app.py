@@ -36,11 +36,12 @@ app.config['SQLALCHEMY_ECHO'] = os.environ.get('SQLALCHEMY_ECHO', 'False').lower
 # -----------------------
 # Configuración de correo (usar variables de entorno)
 # -----------------------
-app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() in ('1','true','yes')
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')    # e.g. fashonfusion140@gmail.com
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')    # usa variable de entorno, NO hardcodear
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'fashonfusion140@gmail.com'
+app.config['MAIL_PASSWORD'] = 'szrf rqic mfsl xnxa'
+app.config['MAIL_DEFAULT_SENDER'] = 'fashonfusion140@gmail.com'  # usa variable de entorno, NO hardcodear
 
 mail = Mail(app)
 
@@ -306,7 +307,7 @@ def logout():
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
-        email = request.form['email'].strip()
+        email = request.form.get('email', '').strip()
         user = Usuario.query.filter_by(correo=email).first()
 
         if not user:
