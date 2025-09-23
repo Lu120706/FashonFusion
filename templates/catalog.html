@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Catálogo{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+  <h2 class="mb-4 text-center">Catálogo de Prendas</h2>
+  <div class="row g-4">
+    {% for p in products %}
+    <div class="col-md-3">
+      <div class="card h-100 shadow-sm catalog-card">
+        <img src="{{ p.image }}" class="card-img-top" alt="{{ p.name }}" style="height:250px;object-fit:cover">
+        <div class="card-body">
+          <h5 class="card-title text-center">{{ p.name }}</h5>
+          <p class="card-text text-muted small">{{ p.desc }}</p>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
