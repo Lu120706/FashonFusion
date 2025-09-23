@@ -214,6 +214,14 @@ def inject_year():
 def index():
     return render_template('index.html', products=PRODUCTS, carousel_images=CAROUSEL_IMAGES)
 
+
+@app.route('/catalog')
+def catalog():
+    # Catálogo sin precios ni botones de compra
+    return render_template('catalog.html', products=PRODUCTS)
+
+
+
 # Registro público (rol 'user' por defecto)
 @app.route('/register', methods=['GET','POST'])
 def register():

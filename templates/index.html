@@ -6,7 +6,7 @@
 <div id="mainCarousel" class="carousel slide mb-5" data-bs-ride="carousel">
   <div class="carousel-indicators">
     {% for i in range(carousel_images|length) %}
-      <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="{{ i }}" {% if i == 0 %}class="active"{% endif %} aria-current="true"></button>
+      <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="{{ i }}" {% if i == 0 %}class="active"{% endif %}></button>
     {% endfor %}
   </div>
   <div class="carousel-inner">
@@ -30,24 +30,84 @@
   </button>
 </div>
 
-<!-- Catálogo -->
-<h2 class="mb-4">Catálogo</h2>
-<div class="row g-4">
-  {% for p in products %}
-  <div class="col-md-3">
-    <div class="card product-card h-100">
-      <img src="{{ p.image }}" class="card-img-top" style="height:200px;object-fit:cover">
-      <div class="card-body d-flex flex-column">
-        <h5 class="card-title">{{ p.name }}</h5>
-        <p class="card-text text-muted">{{ p.desc }}</p>
-        <div class="mt-auto d-flex justify-content-between align-items-center">
-          <strong>${{ '%.2f'|format(p.price) }}</strong>
-          <a class="btn btn-sm btn-primary" href="{{ url_for('product', pid=p.id) }}">añadir</a>
-        </div>
-      </div>
-    </div>
+<!-- ===== Redes sociales con íconos oficiales ===== -->
+<style>
+  .socials-section { margin: 2.5rem 0; text-align: center; }
+  .socials-row { display: inline-flex; gap: 0.7rem; align-items: center; }
+  .social-btn {
+    width: 52px;
+    height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: white;
+    text-decoration: none;
+    background: #333;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .social-btn:hover { transform: translateY(-4px); box-shadow: 0 10px 22px rgba(0,0,0,0.18); }
+  .social-btn svg { width: 28px; height: 28px; fill: white; }
+  .social-btn.x { background: black; }
+  .social-btn.instagram { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
+  .social-btn.facebook { background: #1877f2; }
+  .social-btn.tiktok { background: black; }
+  @media (max-width: 480px) {
+    .social-btn { width:44px; height:44px; }
+    .social-btn svg { width:22px; height:22px; }
+  }
+</style>
+
+<section class="socials-section">
+  <h3>Síguenos</h3>
+  <div class="socials-row">
+
+    <!-- X (Twitter) -->
+    <a class="social-btn x" href="https://x.com/tuusuario" target="_blank" rel="noopener noreferrer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1227">
+        <path d="M714.163 519.284L1160.89 0H1055.01L667.137 450.887L362.926 0H0l466.229 681.473L0 1226.55h105.876l408.288-477.158L857.074 1226.55H1200L714.163 519.284z"/>
+      </svg>
+    </a>
+
+    <!-- Instagram -->
+    <a class="social-btn instagram" href="https://instagram.com/tuusuario" target="_blank" rel="noopener noreferrer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+        <path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9 
+        114.9-51.3 114.9-114.9S287.7 141 224.1 141zm0 
+        189.6c-41.2 0-74.7-33.5-74.7-74.7s33.5-74.7 
+        74.7-74.7 74.7 33.5 74.7 74.7-33.5 74.7-74.7 
+        74.7zm146.4-194.3c0 14.9-12 26.9-26.9 
+        26.9s-26.9-12-26.9-26.9 12-26.9 
+        26.9-26.9 26.9 12 26.9 26.9zm76.1 
+        27.2c-1.7-35.9-9.9-67.7-36.2-93.9s-58-34.5-93.9-36.2c-37-2.1-147.9-2.1-184.9 
+        0-35.9 1.7-67.7 9.9-93.9 36.2s-34.5 58-36.2 
+        93.9c-2.1 37-2.1 147.9 0 184.9 1.7 
+        35.9 9.9 67.7 36.2 93.9s58 34.5 93.9 
+        36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 
+        67.7-9.9 93.9-36.2s34.5-58 36.2-93.9c2.1-37 
+        2.1-147.9 0-184.9z"/>
+      </svg>
+    </a>
+
+    <!-- Facebook -->
+    <a class="social-btn facebook" href="https://facebook.com/tuusuario" target="_blank" rel="noopener noreferrer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512">
+        <path d="M279.14 288l14.22-92.66h-88.91V134.13c0-25.35 
+        12.42-50.06 52.24-50.06h40.42V6.26S293.3 
+        0 268.1 0c-73.14 0-121.11 44.38-121.11 
+        124.72v70.62H86.4V288h60.59v224h92.66V288z"/>
+      </svg>
+    </a>
+
+    <!-- TikTok -->
+    <a class="social-btn tiktok" href="https://tiktok.com/@tuusuario" target="_blank" rel="noopener noreferrer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+        <path d="M448,209.91a210.06,210.06,0,0,1-122.77-39.27v171.9c0,84.64-68.7,153.45-153.45,153.45S18.33,426.18,18.33,341.54,87,188.09,171.78,188.09a152.4,152.4,0,0,1,41.09,5.65V279a69.78,69.78,0,1,0,50.92,67.11V0h61.37A149.85,149.85,0,0,0,448,149.84Z"/>
+      </svg>
+    </a>
+
   </div>
-  {% endfor %}
-</div>
+</section>
 
 {% endblock %}
