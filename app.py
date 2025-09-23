@@ -123,6 +123,12 @@ def index():
     # Pasamos tanto productos como las imágenes del carrusel
     return render_template('index.html', products=PRODUCTS, carousel_images=CAROUSEL_IMAGES)
 
+
+@app.route('/catalog')
+def catalog():
+    return render_template('catalog.html', products=PRODUCTS)
+
+
 # Registro público (rol 'user' por defecto)
 @app.route('/register', methods=['GET','POST'])
 def register():
@@ -196,7 +202,7 @@ def logout():
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
-        email = request.form['email'].strip()
+        email = request.form.get('email', '').strip()
         user = Usuario.query.filter_by(correo=email).first()
 
         if not user:
