@@ -1,21 +1,47 @@
 {% extends "base.html" %}
 {% block title %}Catálogo{% endblock %}
-
 {% block content %}
+
 <div class="container my-5">
-  <h2 class="mb-4 text-center">Catálogo de Prendas</h2>
+  <h2 class="text-center mb-4">Catálogo de Productos</h2>
   <div class="row g-4">
     {% for p in products %}
     <div class="col-md-3">
-      <div class="card h-100 shadow-sm catalog-card">
-        <img src="{{ p.image }}" class="card-img-top" alt="{{ p.name }}" style="height:250px;object-fit:cover">
-        <div class="card-body">
+      <div class="card h-100 shadow-sm product-card">
+        <!-- Imagen clickeable para ver detalle -->
+        <a href="{{ url_for('product', pid=p.id) }}">
+          <img src="{{ p.image }}" class="card-img-top" alt="{{ p.name }}" style="height:250px;object-fit:cover">
+        </a>
+        <div class="card-body d-flex flex-column">
           <h5 class="card-title text-center">{{ p.name }}</h5>
           <p class="card-text text-muted small">{{ p.desc }}</p>
+          <p class="price text-center fw-bold">${{ "%.2f"|format(p.price) }}</p>
+          
+          <!-- Formulario para añadir al carrito -->
+          <form action="{{ url_for('add_to_cart', pid=p.id) }}" method="POST" class="mt-auto">
+            <div class="d-flex justify-content-center gap-2 mb-2">
+              <select name="size" class="form-select form-select-sm" required>
+                <option value="">Talla</option>
+                <option>S</option>
+                <option>M</option>
+                <option>L</option>
+                <option>XL</option>
+              </select>
+              <select name="color" class="form-select form-select-sm" required>
+                <option value="">Color</option>
+                <option>Negro</option>
+                <option>Blanco</option>
+                <option>Azul</option>
+                <option>Rojo</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-dark w-100">Añadir al carrito</button>
+          </form>
         </div>
       </div>
     </div>
     {% endfor %}
   </div>
 </div>
+
 {% endblock %}
