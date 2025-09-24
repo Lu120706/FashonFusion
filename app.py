@@ -8,7 +8,11 @@ from functools import wraps
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired
 from sqlalchemy import or_
+from flask_login import login_required, current_user
+from flask_login import LoginManager, UserMixin, login_user, logout_user
 import logging
+import datetime
+
 
 # -----------------------
 # Configuración
@@ -82,7 +86,15 @@ class Usuario(db.Model):
         if not self.contrasena:
             return False
         return check_password_hash(self.contrasena, raw)
-    
+class Pqrs(db.Model):
+    __tablename__ = 'pqrs'
+    id_pqrs = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    tipo = db.Column(db.String(25), nullable=False)
+    comentario_pqrs = db.Column(db.Text, nullable=False)
+    fecha_hora = db.Column(db.DateTime, default=db.func.current_timestamp())
+    foto_pqrs = db.Column(db.String(400), nullable=True)   # ruta/filename
+    id_usuario = db.Column(db.String(15), nullable=False)  # viene de session['username']
+
 class Review(db.Model):
     __tablename__ = 'resenas'   # Evita tildes en el nombre de tabla por compatibilidad
     id_resena = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -263,7 +275,58 @@ def catalog():
     # Catálogo sin precios ni botones de compra
     return render_template('catalog.html', products=PRODUCTS)
 
+@app.route("/pqrs", methods=["GET", "POST"])
+@login_required   # tu decorador custom que verifica session['username']
+def enviar_pqrs():
+    # Si llegas por GET, sólo muestra la página
+    if request.method == "POST":
+        # Validaciones básicas
+        tipo = request.form.get("tipo", "").strip()
+        mensaje = request.form.get("mensaje", "").strip()
 
+        if not tipo or not mensaje:
+            flash("Completa tipo y mensaje.", "warning")
+            return redirect(url_for("enviar_pqrs"))
+
+        # usuario desde session (consistente con tu login)
+        id_usuario = session.get("username")
+        if not id_usuario:
+            flash("Debes iniciar sesión para enviar PQRS.", "danger")
+            return redirect(url_for("login"))
+
+        # Manejo de archivo: guardarlo en disco y almacenar filename
+        foto_filename = None
+        f = request.files.get("foto")
+        if f and f.filename:
+            if allowed_file(f.filename):
+                filename = secure_filename(f.filename)
+                ts = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+                filename = f"{ts}_{filename}"
+                dest = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                f.save(dest)
+                foto_filename = filename
+            else:
+                flash("Tipo de archivo no permitido.", "warning")
+                return redirect(url_for("enviar_pqrs"))
+
+        nueva = Pqrs(
+            tipo=tipo,
+            comentario_pqrs=mensaje,
+            foto_pqrs=foto_filename,   # si usas LargeBinary, usa f.read() en su lugar
+            id_usuario=id_usuario
+        )
+        db.session.add(nueva)
+        try:
+            db.session.commit()
+            flash("✅ PQRS enviada con éxito", "success")
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Error guardando PQRS: {e}")
+            flash("Ocurrió un error al guardar. Intenta de nuevo.", "danger")
+
+        return redirect(url_for("enviar_pqrs"))
+
+    return render_template("pqrs.html")
 
 # Registro público (rol 'user' por defecto)
 @app.route('/register', methods=['GET','POST'])
@@ -690,34 +753,31 @@ def create_default_data():
 
     # Crear roles compatibles con el esquema (usar short ids si la tabla espera varchar(1))
     try:
-        find_or_create_role('admin')   # intentará 'a' si la DB es varchar(1)
-        find_or_create_role('user')    # intentará 'u'
+        rol_admin = find_or_create_role('admin')   # intentará usar 'a'
+        rol_user = find_or_create_role('user')     # intentará usar 'u'
     except Exception as e:
         app.logger.error(f"Error creando roles por defecto: {e}")
+        return
 
     # Crear admin por defecto, asegurando direccion no nula
     try:
         admin_user = Usuario.query.filter_by(id_usuario='admin').first()
         if not admin_user:
-            rol_admin = find_or_create_role('admin')
-            role_id = rol_admin.id_rol if rol_admin else 'a'  # fallback 'a'
-            admin = Usuario(
+            u = Usuario(
                 id_usuario='admin',
                 nombre='Administrador',
-                correo='admin@example.com',
-                id_rol=role_id,
-                direccion=''   # evitar NULL
+                correo='admin@fashionfusion.com',
+                direccion='N/A',
+                id_rol=rol_admin.id_rol
             )
-            admin.set_password('admin123')  # CAMBIA esta contraseña al desplegar
-            db.session.add(admin)
-            try:
-                db.session.commit()
-            except Exception as e:
-                db.session.rollback()
-                app.logger.error(f"Error creando admin por defecto: {e}")
+            u.set_password('admin123')  # ⚠️ cámbiala después
+            db.session.add(u)
+            db.session.commit()
+            app.logger.info("Usuario admin creado por defecto (user=admin, pass=admin123)")
     except Exception as e:
-        app.logger.error(f"Error creando admin por defecto (outer): {e}")
-
+        db.session.rollback()
+        app.logger.error(f"Error creando usuario admin por defecto: {e}")
+        
 # Ruta útil para debug: confirmar qué base de datos está usando la app
 @app.route('/debug/dbinfo')
 def debug_dbinfo():

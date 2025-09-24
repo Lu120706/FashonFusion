@@ -49,6 +49,10 @@
                       Carrito {% if session.get('cart') %}({{ session['cart']|length }}){% endif %}
                   </a>
                 </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('enviar_pqrs') }}">PQRS</a>
+                </li>
 
                 {% if current_user %}
                     {% if is_admin %}

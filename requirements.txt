@@ -13,3 +13,8 @@ Flask-Migrate>=4.0
 
 # Manejo de contraseñas seguras
 bcrypt>=4.0
+
+# Manejo de sesiones y login
+Flask-Login>=0.6.3
+
+Flask-Login>=0.6
