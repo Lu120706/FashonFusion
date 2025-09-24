@@ -98,21 +98,21 @@ class Review(db.Model):
 # Catálogo, carousel y carrito en memoria
 # -----------------------
 PRODUCTS = [
-    {"id": 1, "name": "Camiseta Minimal", "price": 29.99, "desc": "Camiseta de algodón 100%, corte regular.", "image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800"},
-    {"id": 2, "name": "Chaqueta Urbana", "price": 79.50, "desc": "Chaqueta ligera impermeable, ideal para la ciudad.", "image": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800"},
-    {"id": 3, "name": "Pantalón Slim", "price": 49.00, "desc": "Pantalón con stretch, cómodo para todo el día.", "image": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800"},
-    {"id": 4, "name": "Sudadera Logo", "price": 59.00, "desc": "Sudadera con capucha y logo bordado.", "image": "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800"},
-    {"id": 5, "name": "Gorra Classic", "price": 19.00, "desc": "Gorra ajustable con visera curva.", "image": "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=800"},
-    {"id": 6, "name": "Zapatillas Street", "price": 89.99, "desc": "Zapatillas urbanas para el día a día.", "image": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800"},
-    {"id": 7, "name": "Jeans Vintage", "price": 69.99, "desc": "Jeans de corte recto con acabado vintage.", "image": "https://images.unsplash.com/photo-1582552938357-32b906df40cb?w=800"},
-    {"id": 8, "name": "Bolso Messenger", "price": 45.00, "desc": "Bolso messenger con compartimentos múltiples.", "image": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800"}
+    {"id": 1, "name": "Camiseta ", "price": 50.00, "desc": "Camiseta de corte amplio estilo urbano.", "image": "https://i.pinimg.com/736x/c0/5f/5a/c05f5aa53f9f7e2782cad9213ca212a5.jpg"},
+    {"id": 2, "name": "Chaqueta Urbana", "price": 79.00, "desc": "Chaqueta ligera , ideal para la ciudad.", "image": "https://i.pinimg.com/1200x/7a/ea/c2/7aeac28004e959e74f6982c034464b46.jpg"},
+    {"id": 3, "name": "Pantalón ", "price": 75.00, "desc": "Pantalón cómodo para todo el día.", "image": "https://i.pinimg.com/736x/27/e1/80/27e1807a18944d6b328d4a1c17a87e74.jpg"},
+    {"id": 4, "name": "saco", "price": 59.00, "desc": "saco body con la mejor orma que veras.", "image": "https://i.pinimg.com/1200x/d9/2c/98/d92c98c2b397b63fc786d0160e1e787c.jpg"},
+    {"id": 5, "name": "Gorra ", "price": 35.00, "desc": "Gorra ajustable con visera curva.", "image": "https://i.pinimg.com/1200x/13/be/f6/13bef60b33418c0d8f44c12d1c029646.jpg"},
+    {"id": 6, "name": "Zapatos dc", "price": 150.00, "desc": "Zapatillas urbanas para el día a día.", "image": "https://i.pinimg.com/1200x/fa/3d/9f/fa3d9f93a07581c936e994a2984c4100.jpg"},
+    {"id": 7, "name": "medias", "price": 10.00, "desc": "Medias con diseño moderno y detalles gráficos inspirados en la cultura urbana.", "image": "https://i.pinimg.com/1200x/45/f3/fc/45f3fc74755be341b700966811f9a2ee.jpg"},
+    {"id": 8, "name": "conjunto", "price": 250.00, "desc": "conjunto completo para vestir facha .", "image": "https://i.pinimg.com/736x/65/a4/48/65a448da9825759a584742e4bd4ed327.jpg"}
 ]
 
 CAROUSEL_IMAGES = [
-    "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1400",
-    "https://images.unsplash.com/photo-1445205170230-053b83016050?w=1400",
-    "https://images.unsplash.com/photo-1479064555552-3ef4979f8908?w=1400",
-    "https://images.unsplash.com/photo-1463100099107-aa0980c362e6?w=1400"
+    "https://i.pinimg.com/1200x/25/45/e7/2545e7252e6ae24ba0588acea7b721e3.jpg",
+    "https://i.pinimg.com/736x/83/7a/e8/837ae84549733543a095459f9186dcff.jpg",
+    "https://i.pinimg.com/1200x/b7/55/79/b755793a03207876cb13ea096ff7e905.jpg",
+    "https://i.pinimg.com/1200x/e6/a9/1d/e6a91d80d6fc3d1979b8dbecf41bdc27.jpg"
 ]
 
 SHOPPING_CARTS = {}
