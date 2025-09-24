@@ -1,5 +1,7 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
+from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, send_from_directory, jsonify
+from werkzeug.utils import secure_filename
+from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -80,6 +82,17 @@ class Usuario(db.Model):
         if not self.contrasena:
             return False
         return check_password_hash(self.contrasena, raw)
+    
+class Review(db.Model):
+    __tablename__ = 'resenas'   # Evita tildes en el nombre de tabla por compatibilidad
+    id_resena = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_producto = db.Column(db.Integer, nullable=False, index=True)
+    id_usuario = db.Column(db.String(150), nullable=False, index=True)
+    calidad = db.Column(db.SmallInteger, nullable=False)    # 1..5
+    comodidad = db.Column(db.SmallInteger, nullable=False)  # 1..5
+    comentario_resena = db.Column(db.Text, nullable=True)
+    foto_path = db.Column(db.String(400), nullable=True)    # nombre de archivo en uploads/resenas
+    creado_en = db.Column(db.DateTime, server_default=db.func.now())
 
 # -----------------------
 # Catálogo, carousel y carrito en memoria
@@ -103,6 +116,17 @@ CAROUSEL_IMAGES = [
 ]
 
 SHOPPING_CARTS = {}
+
+# -----------------------
+# Config uploads para reseñas
+# -----------------------
+ALLOWED_EXTENSIONS = {'png','jpg','jpeg','gif'}
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads', 'resenas')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # -----------------------
 # Helpers / decoradores
@@ -423,6 +447,92 @@ def add_to_cart(pid):
         session.modified = True
         flash(f"{product['name']} agregado al carrito (Talla {size}, Color {color})", 'success')
     return redirect(url_for('cart'))
+
+# -----------------------
+# Rutas para reseñas
+# -----------------------
+@app.route('/api/guardar_reseña', methods=['POST'])
+def guardar_resena():
+    # Usar sesión para identificar al usuario (más seguro)
+    id_usuario = session.get('username')
+    if not id_usuario:
+        return jsonify(success=False, message='Debes iniciar sesión.'), 401
+
+    id_producto = request.form.get('id_producto')
+    calidad = request.form.get('calidad')
+    comodidad = request.form.get('comodidad')
+    comentario = request.form.get('comentario_resena')
+
+    if not id_producto or not calidad or not comodidad:
+        return jsonify(success=False, message='Faltan datos.'), 400
+
+    try:
+        id_producto = int(id_producto)
+        calidad = int(calidad)
+        comodidad = int(comodidad)
+    except ValueError:
+        return jsonify(success=False, message='Valores inválidos.'), 400
+
+    foto_path = None
+    if 'foto_comentario' in request.files:
+        f = request.files['foto_comentario']
+        if f and f.filename and allowed_file(f.filename):
+            filename = secure_filename(f.filename)
+            ts = datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
+            filename = f"{ts}_{filename}"
+            dest = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            f.save(dest)
+            foto_path = filename
+
+    new = Review(
+        id_producto=id_producto,
+        id_usuario=str(id_usuario),
+        calidad=calidad,
+        comodidad=comodidad,
+        comentario_resena=comentario,
+        foto_path=foto_path
+    )
+    db.session.add(new)
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error al guardar reseña: {e}")
+        return jsonify(success=False, message='Error interno'), 500
+
+    return jsonify(success=True, resena={
+        "id_resena": new.id_resena,
+        "id_usuario": new.id_usuario,
+        "calidad": new.calidad,
+        "comodidad": new.comodidad,
+        "comentario_resena": new.comentario_resena,
+        "creado_en": new.creado_en.strftime('%Y-%m-%d %H:%M'),
+        "foto_url": url_for('ver_foto_resena', filename=new.foto_path) if new.foto_path else None
+    }), 201
+
+
+@app.route('/api/obtener_reseñas')
+def obtener_resenas():
+    pid = request.args.get('id_producto', type=int)
+    if not pid:
+        return jsonify(reseñas=[])
+    rows = Review.query.filter_by(id_producto=pid).order_by(Review.creado_en.desc()).all()
+    out = []
+    for r in rows:
+        out.append({
+            "id_resena": r.id_resena,
+            "id_usuario": r.id_usuario,
+            "calidad": r.calidad,
+            "comodidad": r.comodidad,
+            "comentario_resena": r.comentario_resena,
+            "creado_en": r.creado_en.strftime('%Y-%m-%d %H:%M'),
+            "foto_url": url_for('ver_foto_resena', filename=r.foto_path) if r.foto_path else None
+        })
+    return jsonify(reseñas=out)
+
+@app.route('/uploads/resenas/<path:filename>')
+def ver_foto_resena(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/cart/remove/<int:product_id>', methods=['POST'])
 @login_required
