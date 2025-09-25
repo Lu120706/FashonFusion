@@ -572,6 +572,9 @@ def add_to_cart(pid):
 # -----------------------
 # Rutas para reseñas
 # -----------------------
+# -----------------------
+# Rutas para reseñas
+# -----------------------
 @app.route('/api/guardar_reseña', methods=['POST'])
 def guardar_resena():
     id_usuario = session.get('username')
@@ -614,8 +617,9 @@ def guardar_resena():
         db.session.rollback()
         return jsonify(success=False, message='Error interno'), 500
 
+    # IMPORTANT: devolvemos "id_resena" (singular) para que coincida con tu JS
     return jsonify(success=True, resena={
-        "id_resenas": new.id_resenas,
+        "id_resena": new.id_resenas,
         "id_usuario": new.id_usuario,
         "calidad": new.calidad,
         "comodidad": new.comodidad,
@@ -623,6 +627,7 @@ def guardar_resena():
         "creado_en": new.creado_en.strftime('%Y-%m-%d %H:%M'),
         "foto_url": url_for('ver_foto_resena', rid=new.id_resenas) if new.foto_comentario else None
     }), 201
+
 
 @app.route('/api/obtener_reseñas')
 def obtener_resenas():
@@ -633,7 +638,7 @@ def obtener_resenas():
     out = []
     for r in rows:
         out.append({
-            "id_resenas": r.id_resenas,
+            "id_resena": r.id_resenas,               # <-- nota: id_resena (singular)
             "id_usuario": r.id_usuario,
             "calidad": r.calidad,
             "comodidad": r.comodidad,
@@ -643,12 +648,84 @@ def obtener_resenas():
         })
     return jsonify(reseñas=out)
 
+
 @app.route('/api/foto_resena/<int:rid>')
 def ver_foto_resena(rid):
     r = Review.query.get_or_404(rid)
     if not r.foto_comentario:
         return "Sin imagen", 404
     return r.foto_comentario, 200, {"Content-Type": "image/jpeg"}
+
+
+# ===================== EDITAR RESEÑA =====================
+@app.route('/api/editar_reseña', methods=['POST'])
+def editar_reseña():
+    if "username" not in session:
+        return jsonify(success=False, message="Debes iniciar sesión."), 401
+
+    # Tu frontend envía FormData, por eso usamos request.form
+    rid = request.form.get("id_resena") or request.form.get("id_resenas")
+    if not rid:
+        return jsonify(success=False, message="Falta id_resena"), 400
+    try:
+        rid = int(rid)
+    except ValueError:
+        return jsonify(success=False, message="id_resena inválido"), 400
+
+    review = Review.query.get_or_404(rid)
+    if review.id_usuario != session.get("username"):
+        return jsonify(success=False, message="No puedes editar reseñas de otros usuarios."), 403
+
+    # Actualizar campos si vienen
+    calidad = request.form.get("calidad")
+    comodidad = request.form.get("comodidad")
+    comentario = request.form.get("comentario_resena")
+
+    if calidad:
+        try:
+            review.calidad = int(calidad)
+        except ValueError:
+            pass
+    if comodidad:
+        try:
+            review.comodidad = int(comodidad)
+        except ValueError:
+            pass
+    if comentario is not None:
+        review.comentario_resena = comentario
+
+    # Si viene nueva foto
+    if 'foto_comentario' in request.files:
+        f = request.files['foto_comentario']
+        if f and f.filename:
+            review.foto_comentario = f.read()
+
+    db.session.commit()
+    return jsonify(success=True, message="Reseña actualizada")
+
+
+# ===================== ELIMINAR RESEÑA =====================
+@app.route('/api/eliminar_reseña', methods=['POST'])
+def eliminar_reseña():
+    if "username" not in session:
+        return jsonify(success=False, message="Debes iniciar sesión."), 401
+
+    data = request.get_json() or {}
+    rid = data.get("id_resena") or data.get("id_resenas")
+    if not rid:
+        return jsonify(success=False, message="Falta id_resena."), 400
+    try:
+        rid = int(rid)
+    except ValueError:
+        return jsonify(success=False, message="id_resena inválido."), 400
+
+    review = Review.query.get_or_404(rid)
+    if review.id_usuario != session.get("username"):
+        return jsonify(success=False, message="No puedes eliminar reseñas de otros usuarios."), 403
+
+    db.session.delete(review)
+    db.session.commit()
+    return jsonify(success=True, message="Reseña eliminada")
 
 @app.route('/cart/remove/<int:product_id>', methods=['POST'])
 @login_required
