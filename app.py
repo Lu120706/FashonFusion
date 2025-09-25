@@ -506,6 +506,13 @@ def cart():
     total = sum(item['price'] for item in cart)
     return render_template('cart.html', cart=cart, total=total)
 
+@app.route('/cart/clear')
+def clear_cart():
+    session.pop("cart", None)
+    session.modified = True
+    flash("Carrito limpiado.", "info")
+    return redirect(url_for("cart"))
+
 @app.route('/cart/add/<int:pid>', methods=['POST'])
 @login_required
 def add_to_cart(pid):
@@ -519,7 +526,8 @@ def add_to_cart(pid):
             "price": product["price"],
             "image": product["image"],
             "size": size,
-            "color": color
+            "color": color,
+            "cantidad": 1
         }
         session.setdefault('cart', [])
         session['cart'].append(item)
@@ -918,6 +926,25 @@ def admin_delete_product(id_producto):
         db.session.rollback()
         flash(f'❌ Error eliminando: {e}', 'danger')
     return redirect(url_for('admin_products'))
+
+@app.route('/update_cart/<int:product_id>', methods=['POST'])
+def update_cart(product_id):
+    action = request.form.get("action")
+
+    if "cart" in session:
+        for item in session["cart"]:
+            if item["id"] == product_id:
+                # Asegurar siempre que el producto tenga cantidad
+                item["cantidad"] = item.get("cantidad", 1)
+
+                if action == "increase":
+                    item["cantidad"] += 1
+                elif action == "decrease" and item["cantidad"] > 1:
+                    item["cantidad"] -= 1
+                break
+        session.modified = True
+
+    return redirect(url_for("cart"))
     
 # -----------------------
 # Ejecutar app
