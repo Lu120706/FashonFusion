@@ -96,14 +96,14 @@ class Pqrs(db.Model):
     id_usuario = db.Column(db.String(15), nullable=False)  # viene de session['username']
 
 class Review(db.Model):
-    __tablename__ = 'resenas'   # Evita tildes en el nombre de tabla por compatibilidad
-    id_resena = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    __tablename__ = 'resenas'
+    id_resenas = db.Column(db.Integer, primary_key=True, autoincrement=True)  # coincide con tu tabla
     id_producto = db.Column(db.Integer, nullable=False, index=True)
-    id_usuario = db.Column(db.String(150), nullable=False, index=True)
-    calidad = db.Column(db.SmallInteger, nullable=False)    # 1..5
-    comodidad = db.Column(db.SmallInteger, nullable=False)  # 1..5
-    comentario_resena = db.Column(db.Text, nullable=True)
-    foto_path = db.Column(db.String(400), nullable=True)    # nombre de archivo en uploads/resenas
+    id_usuario = db.Column(db.String(15), nullable=False, index=True)
+    calidad = db.Column(db.SmallInteger, nullable=False)
+    comodidad = db.Column(db.SmallInteger, nullable=False)
+    comentario_resena = db.Column(db.Text, nullable=False)
+    foto_comentario = db.Column(db.LargeBinary, nullable=True)  # longblob en BD
     creado_en = db.Column(db.DateTime, server_default=db.func.now())
 
 class Producto(db.Model):
@@ -532,7 +532,6 @@ def add_to_cart(pid):
 # -----------------------
 @app.route('/api/guardar_reseña', methods=['POST'])
 def guardar_resena():
-    # Usar sesión para identificar al usuario (más seguro)
     id_usuario = session.get('username')
     if not id_usuario:
         return jsonify(success=False, message='Debes iniciar sesión.'), 401
@@ -552,43 +551,36 @@ def guardar_resena():
     except ValueError:
         return jsonify(success=False, message='Valores inválidos.'), 400
 
-    foto_path = None
+    foto_blob = None
     if 'foto_comentario' in request.files:
         f = request.files['foto_comentario']
-        if f and f.filename and allowed_file(f.filename):
-            filename = secure_filename(f.filename)
-            ts = datetime.utcnow().strftime('%Y%m%d%H%M%S%f')
-            filename = f"{ts}_{filename}"
-            dest = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            f.save(dest)
-            foto_path = filename
+        if f and f.filename:
+            foto_blob = f.read()
 
     new = Review(
         id_producto=id_producto,
-        id_usuario=str(id_usuario),
+        id_usuario=id_usuario,
         calidad=calidad,
         comodidad=comodidad,
         comentario_resena=comentario,
-        foto_path=foto_path
+        foto_comentario=foto_blob
     )
     db.session.add(new)
     try:
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error al guardar reseña: {e}")
         return jsonify(success=False, message='Error interno'), 500
 
     return jsonify(success=True, resena={
-        "id_resena": new.id_resena,
+        "id_resenas": new.id_resenas,
         "id_usuario": new.id_usuario,
         "calidad": new.calidad,
         "comodidad": new.comodidad,
         "comentario_resena": new.comentario_resena,
         "creado_en": new.creado_en.strftime('%Y-%m-%d %H:%M'),
-        "foto_url": url_for('ver_foto_resena', filename=new.foto_path) if new.foto_path else None
+        "foto_url": url_for('ver_foto_resena', rid=new.id_resenas) if new.foto_comentario else None
     }), 201
-
 
 @app.route('/api/obtener_reseñas')
 def obtener_resenas():
@@ -599,19 +591,22 @@ def obtener_resenas():
     out = []
     for r in rows:
         out.append({
-            "id_resena": r.id_resena,
+            "id_resenas": r.id_resenas,
             "id_usuario": r.id_usuario,
             "calidad": r.calidad,
             "comodidad": r.comodidad,
             "comentario_resena": r.comentario_resena,
             "creado_en": r.creado_en.strftime('%Y-%m-%d %H:%M'),
-            "foto_url": url_for('ver_foto_resena', filename=r.foto_path) if r.foto_path else None
+            "foto_url": url_for('ver_foto_resena', rid=r.id_resenas) if r.foto_comentario else None
         })
     return jsonify(reseñas=out)
 
-@app.route('/uploads/resenas/<path:filename>')
-def ver_foto_resena(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+@app.route('/api/foto_resena/<int:rid>')
+def ver_foto_resena(rid):
+    r = Review.query.get_or_404(rid)
+    if not r.foto_comentario:
+        return "Sin imagen", 404
+    return r.foto_comentario, 200, {"Content-Type": "image/jpeg"}
 
 @app.route('/cart/remove/<int:product_id>', methods=['POST'])
 @login_required
