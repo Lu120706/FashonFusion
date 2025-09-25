@@ -106,6 +106,22 @@ class Review(db.Model):
     foto_path = db.Column(db.String(400), nullable=True)    # nombre de archivo en uploads/resenas
     creado_en = db.Column(db.DateTime, server_default=db.func.now())
 
+class Producto(db.Model):
+    __tablename__ = 'productos'   # <- CORRECCIÓN: dos guiones bajos
+    id_producto = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    nombre = db.Column(db.String(150), nullable=False)
+    descripcion = db.Column(db.String(255), nullable=False)
+    categoria = db.Column(db.String(100), nullable=False)
+    talla = db.Column(db.String(20), nullable=False)
+    color = db.Column(db.String(25), nullable=False)
+    precio_producto = db.Column(db.Numeric(10,2), nullable=False, default=0.00)
+    disponibilidad = db.Column(db.Enum('SI', 'NO'), nullable=False, default='SI')
+    # Guardar ruta de la imagen en lugar de binario (más simple)
+    foto_producto = db.Column(db.String(255), nullable=True)
+    stock = db.Column(db.Integer, nullable=False, default=0)
+    creado_en = db.Column(db.DateTime, server_default=db.func.now())
+    actualizado_en = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+
 # -----------------------
 # Catálogo, carousel y carrito en memoria
 # -----------------------
@@ -802,6 +818,111 @@ def debug_session():
         "username": session.get('username'),
         "role": session.get('role')
     }
+
+@app.route('/admin/products')
+@role_required('admin')
+def admin_products():
+    productos = Producto.query.order_by(Producto.creado_en.desc()).all()
+    return render_template('admin_products.html', productos=productos)
+
+
+@app.route('/admin/products/new', methods=['GET', 'POST'])
+@role_required('admin')
+def admin_create_product():
+    if request.method == 'POST':
+        nombre = request.form['nombre']
+        descripcion = request.form['descripcion']
+        categoria = request.form['categoria']
+        talla = request.form['talla']
+        color = request.form['color']
+        precio = float(request.form['precio_producto'])
+        disponibilidad = request.form['disponibilidad']
+        stock = int(request.form['stock'])
+        foto_filename = None
+
+        if 'foto_producto' in request.files:
+            f = request.files['foto_producto']
+            if f and f.filename:
+                filename = secure_filename(f.filename)
+                ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+                filename = f"{ts}_{filename}"
+                upload_path = os.path.join(app.static_folder, "uploads", "productos")  # mejor en static/uploads/...
+                os.makedirs(upload_path, exist_ok=True)
+                f.save(os.path.join(upload_path, filename))
+                foto_filename = os.path.join("uploads", "productos", filename)  # ruta relativa para servir desde /static/
+
+        nuevo = Producto(
+            nombre=nombre,
+            descripcion=descripcion,
+            categoria=categoria,
+            talla=talla,
+            color=color,
+            precio_producto=precio,
+            disponibilidad=disponibilidad,
+            stock=stock,
+            foto_producto=foto_filename
+        )
+        db.session.add(nuevo)
+        try:
+            db.session.commit()
+            flash('✅ Producto creado con éxito', 'success')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.exception("Error creando producto")
+            flash('❌ Error al crear producto', 'danger')
+        return redirect(url_for('admin_products'))
+
+    return render_template('product_form.html', action='Crear', producto=None)
+
+
+@app.route('/admin/products/edit/<int:id_producto>', methods=['GET', 'POST'])
+@role_required('admin')
+def admin_edit_product(id_producto):
+    producto = Producto.query.get_or_404(id_producto)
+    if request.method == 'POST':
+        producto.nombre = request.form['nombre']
+        producto.descripcion = request.form['descripcion']
+        producto.categoria = request.form['categoria']
+        producto.talla = request.form['talla']
+        producto.color = request.form['color']
+        producto.precio_producto = float(request.form['precio_producto'])
+        producto.disponibilidad = request.form['disponibilidad']
+        producto.stock = int(request.form['stock'])
+
+        if 'foto_producto' in request.files:
+            f = request.files['foto_producto']
+            if f and f.filename:
+                filename = secure_filename(f.filename)
+                ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+                filename = f"{ts}_{filename}"
+                upload_path = os.path.join("uploads", "productos")
+                os.makedirs(upload_path, exist_ok=True)
+                f.save(os.path.join(upload_path, filename))
+                producto.foto_producto = filename
+
+        try:
+            db.session.commit()
+            flash('✅ Producto actualizado', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'❌ Error: {e}', 'danger')
+        return redirect(url_for('admin_products'))
+
+    return render_template('product_form.html', action='Editar', producto=producto)
+
+
+@app.route('/admin/products/delete/<int:id_producto>', methods=['POST'])
+@role_required('admin')
+def admin_delete_product(id_producto):
+    producto = Producto.query.get_or_404(id_producto)
+    db.session.delete(producto)
+    try:
+        db.session.commit()
+        flash('✅ Producto eliminado', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'❌ Error eliminando: {e}', 'danger')
+    return redirect(url_for('admin_products'))
     
 # -----------------------
 # Ejecutar app
