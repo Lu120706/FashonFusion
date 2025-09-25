@@ -1,0 +1,145 @@
+{# templates/admin_rol.html #}
+{% extends "base.html" %}
+{% block title %}Gestión de Roles{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="card shadow-sm">
+    <div class="card-body">
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, msg in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+              {{ msg }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <h3 class="text-center mb-4"><i class="bi bi-people"></i> Gestión de Roles</h3>
+
+      <!-- Formulario para agregar rol -->
+      <form action="{{ url_for('crear_rol') }}" method="POST" class="mb-4">
+        {# Si usas Flask-WTF, inserta el CSRF token aquí: {{ form.csrf_token }} #}
+        <div class="row g-2">
+          <div class="col-md-3">
+            <label for="id_rol" class="form-label">ID Rol</label>
+            <input type="text" name="id_rol" id="id_rol" maxlength="10" class="form-control" required>
+          </div>
+          <div class="col-md-6">
+            <label for="nombre" class="form-label">Nombre del Rol</label>
+            <input type="text" name="nombre" id="nombre" maxlength="100" class="form-control" required>
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">➕ Agregar Rol</button>
+          </div>
+        </div>
+      </form>
+
+      <hr>
+
+      <!-- Listado de roles -->
+      <h5 class="mt-3">Lista de Roles</h5>
+      {% if roles and roles|length > 0 %}
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped align-middle mt-2">
+            <thead class="table-dark">
+              <tr>
+                <th style="width:90px;">ID Rol</th>
+                <th>Nombre</th>
+                <th style="width:180px;">Fecha Registro</th>
+                <th style="width:180px;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for rol in roles %}
+              <tr>
+                <td class="align-middle">{{ rol.id_rol }}</td>
+                <td class="align-middle">{{ rol.nombre }}</td>
+                <td class="align-middle">
+                  {# Manejo seguro por si fecha_registro es None #}
+                  {% if rol.fecha_registro %}
+                    {{ rol.fecha_registro.strftime("%Y-%m-%d %H:%M") }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td class="align-middle">
+                  <a href="{{ url_for('editar_rol', id=rol.id_rol) }}" class="btn btn-sm btn-warning me-1">Editar</a>
+
+                  <!-- Botón que abre la modal; usamos data-action para inyectar URL -->
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-danger btn-eliminar"
+                    data-action="{{ url_for('eliminar_rol', id=rol.id_rol) }}"
+                    data-nombre="{{ rol.nombre }}"
+                    data-id="{{ rol.id_rol }}"
+                    data-bs-toggle="modal"
+                    data-bs-target="#confirmDeleteModal">
+                    Eliminar
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="alert alert-info mt-3 mb-0">No hay roles registrados.</div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal único de confirmación -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="confirmDeleteLabel">Confirmar eliminación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p>¿Estás seguro que deseas eliminar el rol <strong id="modal-role-name"></strong> (ID: <span id="modal-role-id"></span>)?</p>
+        <p class="text-danger small mb-0">Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="modal-footer">
+        <form id="delete-form" method="POST" action="">
+          {# Si usas CSRF, coloca el token aquí: <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"> #}
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Script para rellenar la modal y asignar action del form desde data-action -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modalRoleName = document.getElementById('modal-role-name');
+  const modalRoleId = document.getElementById('modal-role-id');
+  const deleteForm = document.getElementById('delete-form');
+
+  document.querySelectorAll('.btn-eliminar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.getAttribute('data-action');
+      const nombre = btn.getAttribute('data-nombre');
+      const id = btn.getAttribute('data-id');
+
+      // Rellenar texto en la modal
+      modalRoleName.textContent = nombre;
+      modalRoleId.textContent = id;
+
+      // Asignar action del formulario de eliminación
+      deleteForm.action = action;
+    });
+  });
+});
+</script>
+{% endblock %}
+{# templates/base.html #}

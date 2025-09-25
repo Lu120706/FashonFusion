@@ -996,11 +996,14 @@ def actualizar_estado(id):
     return redirect(url_for('listar_pqrs'))
 
 @app.route("/roles")
+@role_required('admin')
 def listar_roles():
-    roles = Rol.query.all()
-    return render_template("roles.html", roles=roles)
+    roles = Rol.query.order_by(Rol.fecha_registro.desc()).all()
+    return render_template("admin_rol.html", roles=roles)
+
 
 @app.route("/roles/crear", methods=["POST"])
+@role_required('admin')
 def crear_rol():
     id_rol = request.form["id_rol"]
     nombre = request.form["nombre"]
@@ -1008,8 +1011,44 @@ def crear_rol():
     nuevo = Rol(id_rol=id_rol, nombre=nombre)
     db.session.add(nuevo)
     db.session.commit()
+    flash("Rol creado correctamente.", "success")
     return redirect(url_for("listar_roles"))
 
+
+@app.route("/roles/editar/<id>", methods=["GET", "POST"])
+@role_required('admin')
+def editar_rol(id):
+    rol = Rol.query.filter_by(id_rol=str(id)).first()
+    if not rol:
+        flash("Rol no encontrado.", "warning")
+        return redirect(url_for("listar_roles"))
+
+    if request.method == "POST":
+        nombre = request.form.get("nombre")
+        if not nombre:
+            flash("El nombre no puede estar vacío.", "danger")
+            return render_template("roles_edit.html", rol=rol)
+
+        rol.nombre = nombre
+        db.session.commit()
+        flash("Rol actualizado correctamente.", "success")
+        return redirect(url_for("listar_roles"))
+
+    return render_template("roles_edit.html", rol=rol)
+
+
+@app.route("/roles/eliminar/<id>", methods=["POST"])
+@role_required('admin')
+def eliminar_rol(id):
+    rol = Rol.query.filter_by(id_rol=str(id)).first()
+    if not rol:
+        flash("Rol no encontrado.", "warning")
+        return redirect(url_for("listar_roles"))
+
+    db.session.delete(rol)
+    db.session.commit()
+    flash("Rol eliminado.", "success")
+    return redirect(url_for("listar_roles"))
 
 # -----------------------
 # Ejecutar app
