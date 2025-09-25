@@ -86,6 +86,7 @@ class Usuario(db.Model):
         if not self.contrasena:
             return False
         return check_password_hash(self.contrasena, raw)
+    
 class Pqrs(db.Model):
     __tablename__ = 'pqrs'
     id_pqrs = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -93,7 +94,8 @@ class Pqrs(db.Model):
     comentario_pqrs = db.Column(db.Text, nullable=False)
     fecha_hora = db.Column(db.DateTime, default=db.func.current_timestamp())
     foto_pqrs = db.Column(db.String(400), nullable=True)   # ruta/filename
-    id_usuario = db.Column(db.String(15), nullable=False)  # viene de session['username']
+    id_usuario = db.Column(db.String(80), nullable=False)  # guarda session['username']
+    estado = db.Column(db.String(30), nullable=False, default='Pendiente')
 
 class Review(db.Model):
     __tablename__ = 'resenas'
@@ -292,25 +294,22 @@ def catalog():
     return render_template('catalog.html', products=PRODUCTS)
 
 @app.route("/pqrs", methods=["GET", "POST"])
-@login_required   # tu decorador custom que verifica session['username']
+@login_required
 def enviar_pqrs():
-    # Si llegas por GET, sólo muestra la página
+    # POST = crear PQRS
     if request.method == "POST":
-        # Validaciones básicas
         tipo = request.form.get("tipo", "").strip()
         mensaje = request.form.get("mensaje", "").strip()
-
         if not tipo or not mensaje:
             flash("Completa tipo y mensaje.", "warning")
             return redirect(url_for("enviar_pqrs"))
 
-        # usuario desde session (consistente con tu login)
-        id_usuario = session.get("username")
+        id_usuario = session.get("username")  # según tu modelo
         if not id_usuario:
-            flash("Debes iniciar sesión para enviar PQRS.", "danger")
+            flash("Debes iniciar sesión.", "danger")
             return redirect(url_for("login"))
 
-        # Manejo de archivo: guardarlo en disco y almacenar filename
+        # manejo de foto
         foto_filename = None
         f = request.files.get("foto")
         if f and f.filename:
@@ -320,7 +319,7 @@ def enviar_pqrs():
                 filename = f"{ts}_{filename}"
                 dest = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 f.save(dest)
-                foto_filename = filename
+                foto_filename = os.path.join("uploads", "pqrs", filename)  # ruta relativa para static
             else:
                 flash("Tipo de archivo no permitido.", "warning")
                 return redirect(url_for("enviar_pqrs"))
@@ -328,8 +327,8 @@ def enviar_pqrs():
         nueva = Pqrs(
             tipo=tipo,
             comentario_pqrs=mensaje,
-            foto_pqrs=foto_filename,   # si usas LargeBinary, usa f.read() en su lugar
-            id_usuario=id_usuario
+            foto_pqrs=foto_filename,
+            id_usuario=str(id_usuario)  # guardamos el username como cadena
         )
         db.session.add(nueva)
         try:
@@ -337,12 +336,47 @@ def enviar_pqrs():
             flash("✅ PQRS enviada con éxito", "success")
         except Exception as e:
             db.session.rollback()
-            app.logger.error(f"Error guardando PQRS: {e}")
+            app.logger.exception("Error guardando PQRS")
             flash("Ocurrió un error al guardar. Intenta de nuevo.", "danger")
 
         return redirect(url_for("enviar_pqrs"))
 
-    return render_template("pqrs.html")
+    # GET = mostrar formulario + lista del usuario
+    id_usuario = session.get("username")
+    pqrs_list = []
+    if id_usuario:
+        pqrs_list = Pqrs.query.filter_by(id_usuario=str(id_usuario)).order_by(Pqrs.fecha_hora.desc()).all()
+    return render_template("pqrs.html", pqrs_list=pqrs_list)
+
+@app.route('/admin/pqrs')
+@role_required('admin')
+def admin_pqrs():
+    # Trae TODAS las PQRS sin filtrar por usuario
+    todas = Pqrs.query.order_by(Pqrs.fecha_hora.desc()).all()
+    app.logger.info("Admin %s cargó admin_pqrs; filas=%d", session.get('username'), len(todas))
+    return render_template('admin_pqrs.html', pqrs_list=todas)
+
+@app.route("/admin/pqrs/<int:id_pqrs>/estado", methods=["POST"])
+@role_required('admin')   # o la verificación de rol que uses
+def admin_change_pqrs_estado(id_pqrs):
+    app.logger.info("POST estado: %s user=%s", dict(request.form), session.get('username'))
+    nuevo_estado = request.form.get("estado")
+    if not nuevo_estado:
+        flash("Estado no enviado", "warning")
+        return redirect(url_for('admin_pqrs'))
+
+    pq = Pqrs.query.get_or_404(id_pqrs)
+    pq.estado = nuevo_estado
+    try:
+        db.session.commit()
+        flash(f"Estado de PQRS #{id_pqrs} actualizado a {nuevo_estado}.", "success")
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Error actualizando estado PQRS")
+        flash("Ocurrió un error al actualizar el estado.", "danger")
+
+    # <-- aquí redirigimos al panel admin (no al listado de usuarios)
+    return redirect(url_for('admin_pqrs'))
 
 # Registro público (rol 'user' por defecto)
 @app.route('/register', methods=['GET','POST'])
@@ -946,6 +980,21 @@ def update_cart(product_id):
 
     return redirect(url_for("cart"))
     
+@app.route('/actualizar_estado/<int:id>', methods=['POST'])
+def actualizar_estado(id):
+    if not session.get('username') or session.get('role') != 'admin':
+        flash("No tienes permisos para realizar esta acción", "danger")
+        return redirect(url_for('listar_pqrs'))
+
+    nuevo_estado = request.form.get("estado")
+
+    pqrs = Pqrs.query.get_or_404(id)
+    pqrs.estado = nuevo_estado
+    db.session.commit()
+
+    flash("Estado de la PQRS actualizado correctamente ✅", "success")
+    return redirect(url_for('listar_pqrs'))
+
 # -----------------------
 # Ejecutar app
 # -----------------------

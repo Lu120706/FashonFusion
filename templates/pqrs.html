@@ -14,7 +14,7 @@
             <a href="{{ url_for('login') }}" class="btn btn-primary">Iniciar sesión</a>
         </div>
     {% else %}
-        <!-- ✅ Formulario PQRS -->
+        <!-- Formulario PQRS -->
         <form action="{{ url_for('enviar_pqrs') }}" method="POST" enctype="multipart/form-data">
             <div class="row mb-3">
                 <div class="col">
@@ -43,7 +43,7 @@
 
         <hr>
 
-        <!-- 📋 Listado de PQRS -->
+        <!-- Listado de PQRS -->
         <h4 class="mt-4">Mis PQRS enviados</h4>
         {% if pqrs_list %}
             <div class="table-responsive">
@@ -61,22 +61,24 @@
                     <tbody>
                         {% for pqrs in pqrs_list %}
                         <tr>
-                            <td>{{ pqrs.id }}</td>
+                            <td>{{ pqrs.id_pqrs }}</td>
                             <td>{{ pqrs.tipo }}</td>
-                            <td>{{ pqrs.mensaje }}</td>
-                            <td>{{ pqrs.fecha.strftime("%Y-%m-%d %H:%M") }}</td>
+                            <td style="white-space:pre-wrap;">{{ pqrs.comentario_pqrs }}</td>
+                            <td>{{ pqrs.fecha_hora.strftime("%Y-%m-%d %H:%M") if pqrs.fecha_hora else '-' }}</td>
                             <td>
                                 {% if pqrs.estado == "Pendiente" %}
                                     <span class="badge bg-warning">Pendiente</span>
+                                {% elif pqrs.estado == "En proceso" %}
+                                    <span class="badge bg-info">En proceso</span>
                                 {% elif pqrs.estado == "Resuelto" %}
                                     <span class="badge bg-success">Resuelto</span>
                                 {% else %}
-                                    <span class="badge bg-secondary">{{ pqrs.estado }}</span>
+                                    <span class="badge bg-secondary">{{ pqrs.estado or '-' }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if pqrs.foto %}
-                                    <a href="{{ url_for('static', filename='uploads/' ~ pqrs.foto) }}" target="_blank">Ver</a>
+                                {% if pqrs.foto_pqrs %}
+                                    <a href="{{ url_for('static', filename=pqrs.foto_pqrs) }}" target="_blank">Ver</a>
                                 {% else %}
                                     -
                                 {% endif %}
