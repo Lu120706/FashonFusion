@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Gestión de Roles{% endblock %}
+
+{% block content %}
+<div class="card p-4">
+    <h3 class="text-center">
+        <i class="bi bi-people"></i> Gestión de Roles
+    </h3>
+
+    <!-- ✅ Formulario para agregar rol -->
+    <form action="{{ url_for('crear_rol') }}" method="POST" class="mb-4">
+        <div class="row">
+            <div class="col-md-3">
+                <label for="id_rol">ID Rol</label>
+                <input type="text" name="id_rol" id="id_rol" maxlength="1" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+                <label for="nombre">Nombre del Rol</label>
+                <input type="text" name="nombre" id="nombre" maxlength="25" class="form-control" required>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Agregar Rol</button>
+            </div>
+        </div>
+    </form>
+
+    <hr>
+
+    <!-- 📋 Listado de roles -->
+    <h4 class="mt-3">Lista de Roles</h4>
+    {% if roles %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped mt-2">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID Rol</th>
+                        <th>Nombre</th>
+                        <th>Fecha Registro</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rol in roles %}
+                    <tr>
+                        <td>{{ rol.id_rol }}</td>
+                        <td>{{ rol.nombre }}</td>
+                        <td>{{ rol.fecha_registro.strftime("%Y-%m-%d %H:%M") }}</td>
+                        <td>
+                            <a href="{{ url_for('editar_rol', id=rol.id_rol) }}" class="btn btn-sm btn-warning">Editar</a>
+                            <a href="{{ url_for('eliminar_rol', id=rol.id_rol) }}" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar este rol?');">Eliminar</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info mt-3">No hay roles registrados.</div>
+    {% endif %}
+</div>
+{% endblock %}

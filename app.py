@@ -995,6 +995,22 @@ def actualizar_estado(id):
     flash("Estado de la PQRS actualizado correctamente ✅", "success")
     return redirect(url_for('listar_pqrs'))
 
+@app.route("/roles")
+def listar_roles():
+    roles = Rol.query.all()
+    return render_template("roles.html", roles=roles)
+
+@app.route("/roles/crear", methods=["POST"])
+def crear_rol():
+    id_rol = request.form["id_rol"]
+    nombre = request.form["nombre"]
+
+    nuevo = Rol(id_rol=id_rol, nombre=nombre)
+    db.session.add(nuevo)
+    db.session.commit()
+    return redirect(url_for("listar_roles"))
+
+
 # -----------------------
 # Ejecutar app
 # -----------------------
