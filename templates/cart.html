@@ -6,7 +6,7 @@
     <div class="card-body">
       <h2 class="mb-4 text-center">🛒 Carrito de Compras</h2>
 
-      {% if cart %}
+      {% if carrito %}
       <table class="table table-bordered align-middle">
         <thead class="table-light">
           <tr class="text-center">
@@ -20,37 +20,39 @@
           </tr>
         </thead>
         <tbody>
-          {% for item in cart %}
+          {% for item in carrito %}
           <tr>
-            <td>
-              <img src="{{ item['image'] }}" alt="{{ item['name'] }}" style="width: 60px; height: auto; margin-right: 10px;">
-              {{ item["name"] }}
+            <td class="align-middle">
+              <img src="{{ item.imagen }}" alt="{{ item.nombre }}" style="width: 60px; height: auto; margin-right: 10px;">
+              {{ item.nombre }}
             </td>
-            <td class="text-center">{{ item["size"] }}</td>
-            <td class="text-center">{{ item["color"] }}</td>
-            <td class="text-center">${{ "%.2f"|format(item["price"]) }}</td>
+            <td class="text-center align-middle">{{ item.talla }}</td>
+            <td class="text-center align-middle">{{ item.color }}</td>
+            <td class="text-center align-middle">${{ "%.2f"|format(item.precio) }}</td>
 
-            <!-- Cantidad con botones -->
-            <td class="text-center">
+            <td class="text-center align-middle">
               <div class="d-flex justify-content-center align-items-center">
-                <form action="{{ url_for('update_cart', product_id=item['id']) }}" method="POST" class="d-inline">
+                <form action="{{ url_for('update_cart') }}" method="POST" class="d-inline me-1">
+                  <input type="hidden" name="key" value="{{ item.key }}">
                   <input type="hidden" name="action" value="decrease">
                   <button type="submit" class="btn btn-sm btn-outline-secondary">-</button>
                 </form>
-                <span class="mx-2">{{ item["cantidad"] }}</span>
-                <form action="{{ url_for('update_cart', product_id=item['id']) }}" method="POST" class="d-inline">
+
+                <span class="mx-2 align-middle">{{ item.cantidad }}</span>
+
+                <form action="{{ url_for('update_cart') }}" method="POST" class="d-inline ms-1">
+                  <input type="hidden" name="key" value="{{ item.key }}">
                   <input type="hidden" name="action" value="increase">
                   <button type="submit" class="btn btn-sm btn-outline-secondary">+</button>
                 </form>
               </div>
             </td>
 
-            <!-- Subtotal -->
-            <td class="text-center">${{ "%.2f"|format(item["price"] * item["cantidad"]) }}</td>
+            <td class="text-center align-middle">${{ "%.2f"|format(item.subtotal) }}</td>
 
-            <!-- Eliminar -->
-            <td class="text-center">
-              <form action="{{ url_for('remove_from_cart', product_id=item['id']) }}" method="POST">
+            <td class="text-center align-middle">
+              <form action="{{ url_for('remove_from_cart') }}" method="POST">
+                <input type="hidden" name="key" value="{{ item.key }}">
                 <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
               </form>
             </td>
@@ -61,7 +63,8 @@
       
       <div class="d-flex justify-content-between align-items-center mt-4">
         <h4>Total: <span class="text-success">${{ "%.2f"|format(total) }}</span></h4>
-        <form action="{{ url_for('checkout') }}" method="POST">
+        <form action="{{ url_for('checkout') }}" method="POST" class="d-flex">
+          <input type="text" name="direccion_envio" placeholder="Dirección de envío" class="form-control me-2" required>
           <button type="submit" class="btn btn-success">Proceder al pago</button>
         </form>
       </div>

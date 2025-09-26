@@ -11,8 +11,9 @@ from sqlalchemy import or_
 from flask_login import login_required, current_user
 from flask_login import LoginManager, UserMixin, login_user, logout_user
 import logging
-import datetime
-
+from datetime import datetime
+from decimal import Decimal
+from flask_login import LoginManager
 
 # -----------------------
 # Configuración
@@ -74,10 +75,11 @@ class Usuario(db.Model):
     nombre = db.Column(db.String(150), nullable=False)
     correo = db.Column(db.String(150), unique=True)
     contrasena = db.Column(db.String(255))
-    direccion = db.Column(db.String(255))  # en la BD actual puede ser NOT NULL; al crear usaremos '' si es necesario
-    id_rol = db.Column(db.String(1), db.ForeignKey('rol.id_rol'))  # FK a varchar(1)
+    direccion = db.Column(db.String(255))
+    id_rol = db.Column(db.String(1), db.ForeignKey('rol.id_rol'))
     creado_en = db.Column(db.DateTime, server_default=db.func.now())
     actualizado_en = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+    facturas = db.relationship('Factura', backref='usuario', lazy=True)
 
     def set_password(self, raw):
         self.contrasena = generate_password_hash(raw)
@@ -109,20 +111,45 @@ class Review(db.Model):
     creado_en = db.Column(db.DateTime, server_default=db.func.now())
 
 class Producto(db.Model):
-    __tablename__ = 'productos'   # <- CORRECCIÓN: dos guiones bajos
+    __tablename__ = 'productos'
     id_producto = db.Column(db.Integer, primary_key=True, autoincrement=True)
     nombre = db.Column(db.String(150), nullable=False)
     descripcion = db.Column(db.String(255), nullable=False)
     categoria = db.Column(db.String(100), nullable=False)
-    talla = db.Column(db.String(20), nullable=False)
-    color = db.Column(db.String(25), nullable=False)
-    precio_producto = db.Column(db.Numeric(10,2), nullable=False, default=0.00)
+    talla = db.Column(db.String(20))
+    color = db.Column(db.String(25))
+    precio_producto = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     disponibilidad = db.Column(db.Enum('SI', 'NO'), nullable=False, default='SI')
-    # Guardar ruta de la imagen en lugar de binario (más simple)
-    foto_producto = db.Column(db.String(255), nullable=True)
+    foto_producto = db.Column(db.LargeBinary)  # longblob
     stock = db.Column(db.Integer, nullable=False, default=0)
-    creado_en = db.Column(db.DateTime, server_default=db.func.now())
-    actualizado_en = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
+    creado_en = db.Column(db.DateTime, default=datetime.utcnow)
+    actualizado_en = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Factura(db.Model):
+    __tablename__ = 'factura'
+    id_factura = db.Column(db.Integer, primary_key=True)
+    id_usuario = db.Column(db.String(15), db.ForeignKey('usuarios.id_usuario'), nullable=False)
+    direccion_envio = db.Column(db.String(255), nullable=False)
+    estado = db.Column(db.Enum('pendiente', 'pagada', 'enviada', 'cancelada'), default='pendiente')
+    total = db.Column(db.Numeric(10, 2), nullable=False)
+    creado_en = db.Column(db.DateTime, default=datetime.utcnow)
+    actualizado_en = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    items = db.relationship('FacturaItem', backref='factura', cascade='all, delete-orphan')
+
+class FacturaItem(db.Model):
+    __tablename__ = 'factura_items'
+    id_item = db.Column(db.Integer, primary_key=True)
+    id_factura = db.Column(db.Integer, db.ForeignKey('factura.id_factura'), nullable=False)
+    id_producto = db.Column(db.Integer, db.ForeignKey('productos.id_producto'), nullable=True)  
+    cantidad = db.Column(db.Integer, nullable=False)
+    precio_unitario = db.Column(db.Numeric(10, 2), nullable=False)
+    subtotal = db.Column(db.Numeric(10, 2), nullable=False)
+    nombre_producto = db.Column(db.String(255))
+    talla = db.Column(db.String(20))
+    color = db.Column(db.String(25))
+    creado_en = db.Column(db.DateTime, default=datetime.utcnow)
+    producto = db.relationship("Producto", backref="factura_items", lazy=True)
+
 
 # -----------------------
 # Catálogo, carousel y carrito en memoria
@@ -155,8 +182,61 @@ UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads', 'resenas')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# -----------------------
+# Login Manager
+# -----------------------
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"   # redirige aquí si no está logueado
+
+@login_manager.user_loader
+def load_user(user_id):
+    return Usuario.query.get(int(user_id))
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def _get_cart():
+    """
+    Devuelve un diccionario con el carrito garantizado.
+    Si la sesión tiene formato antiguo (lista), intenta migrarlo.
+    """
+    cart = session.get('cart', {})
+
+    # Si venía como lista (formato antiguo), migramos a dict
+    if isinstance(cart, list):
+        new_cart = {}
+        for entry in cart:
+            try:
+                pid = str(entry.get('id') or entry.get('id_producto') or entry.get('product_id') or '')
+                talla = entry.get('talla') or entry.get('size') or ''
+                color = entry.get('color') or ''
+                if not pid:
+                    continue
+                key = f"{pid}:{talla}:{color}"
+                new_cart[key] = {
+                    'id': int(pid),
+                    'nombre': entry.get('nombre') or entry.get('name'),
+                    'precio': float(entry.get('price') or entry.get('precio') or entry.get('precio_producto') or 0),
+                    'cantidad': int(entry.get('cantidad', 1)),
+                    'talla': talla,
+                    'color': color,
+                    'imagen': entry.get('imagen') or entry.get('image') or ''
+                }
+            except Exception:
+                continue
+        cart = new_cart
+        session['cart'] = cart
+        session.modified = True
+
+    # Aseguramos que cart sea dict
+    if not isinstance(cart, dict):
+        cart = {}
+        session['cart'] = cart
+        session.modified = True
+
+    return cart
+
 
 # -----------------------
 # Helpers / decoradores
@@ -287,11 +367,10 @@ def inject_globals():
 def index():
     return render_template('index.html', products=PRODUCTS, carousel_images=CAROUSEL_IMAGES)
 
-
 @app.route('/catalog')
 def catalog():
-    # Catálogo sin precios ni botones de compra
-    return render_template('catalog.html', products=PRODUCTS)
+    productos = Producto.query.all()
+    return render_template('catalog.html', products=productos)
 
 @app.route("/pqrs", methods=["GET", "POST"])
 @login_required
@@ -534,11 +613,31 @@ def product(pid):
     return render_template('product.html', product=p)
 
 @app.route('/cart')
-@login_required
+@login_required  # opcional, según tu app (si quieres que cualquiera vea carrito puedes quitarlo)
 def cart():
-    cart = session.get('cart', [])
-    total = sum(item['price'] for item in cart)
-    return render_template('cart.html', cart=cart, total=total)
+    cart_dict = _get_cart()
+    carrito = []
+    total = Decimal('0.00')
+
+    for key, item in cart_dict.items():
+        precio = Decimal(str(item.get('precio', 0)))
+        cantidad = int(item.get('cantidad', 1))
+        subtotal = precio * cantidad
+        total += subtotal
+
+        carrito.append({
+            'key': key,                   # identificador único dentro del carrito (product:talla:color)
+            'id': item.get('id'),
+            'nombre': item.get('nombre'),
+            'precio': float(precio),
+            'cantidad': cantidad,
+            'talla': item.get('talla'),
+            'color': item.get('color'),
+            'imagen': item.get('imagen'),
+            'subtotal': float(subtotal)
+        })
+
+    return render_template('cart.html', carrito=carrito, total=float(total))
 
 @app.route('/cart/clear')
 def clear_cart():
@@ -547,34 +646,13 @@ def clear_cart():
     flash("Carrito limpiado.", "info")
     return redirect(url_for("cart"))
 
-@app.route('/cart/add/<int:pid>', methods=['POST'])
-@login_required
-def add_to_cart(pid):
-    product = next((p for p in PRODUCTS if p['id'] == pid), None)
-    if product:
-        size = request.form.get("size")
-        color = request.form.get("color")
-        item = {
-            "id": product["id"],
-            "name": product["name"],
-            "price": product["price"],
-            "image": product["image"],
-            "size": size,
-            "color": color,
-            "cantidad": 1
-        }
-        session.setdefault('cart', [])
-        session['cart'].append(item)
-        session.modified = True
-        flash(f"{product['name']} agregado al carrito (Talla {size}, Color {color})", 'success')
-    return redirect(url_for('cart'))
+# -----------------------
+# Rutas para reseñas
+# -----------------------
+# -----------------------
+# Rutas para reseñas
+# -----------------------
 
-# -----------------------
-# Rutas para reseñas
-# -----------------------
-# -----------------------
-# Rutas para reseñas
-# -----------------------
 @app.route('/api/guardar_reseña', methods=['POST'])
 def guardar_resena():
     id_usuario = session.get('username')
@@ -727,18 +805,9 @@ def eliminar_reseña():
     db.session.commit()
     return jsonify(success=True, message="Reseña eliminada")
 
-@app.route('/cart/remove/<int:product_id>', methods=['POST'])
-@login_required
-def remove_from_cart(product_id):
-    if 'cart' in session:
-        session['cart'] = [i for i in session['cart'] if i['id'] != product_id]
-        session.modified = True
-        flash('Producto eliminado', 'success')
-    return redirect(url_for('cart'))
-
 @app.route('/cart/checkout', methods=['POST'])
 @login_required
-def checkout():
+def cart_checkout():
     session['cart'] = []
     session.modified = True
     flash('Compra realizada con éxito', 'success')
@@ -1037,25 +1106,6 @@ def admin_delete_product(id_producto):
         db.session.rollback()
         flash(f'❌ Error eliminando: {e}', 'danger')
     return redirect(url_for('admin_products'))
-
-@app.route('/update_cart/<int:product_id>', methods=['POST'])
-def update_cart(product_id):
-    action = request.form.get("action")
-
-    if "cart" in session:
-        for item in session["cart"]:
-            if item["id"] == product_id:
-                # Asegurar siempre que el producto tenga cantidad
-                item["cantidad"] = item.get("cantidad", 1)
-
-                if action == "increase":
-                    item["cantidad"] += 1
-                elif action == "decrease" and item["cantidad"] > 1:
-                    item["cantidad"] -= 1
-                break
-        session.modified = True
-
-    return redirect(url_for("cart"))
     
 @app.route('/actualizar_estado/<int:id>', methods=['POST'])
 def actualizar_estado(id):
@@ -1127,14 +1177,210 @@ def eliminar_rol(id):
     flash("Rol eliminado.", "success")
     return redirect(url_for("listar_roles"))
 
+@app.route('/checkout', methods=['POST'])
+@login_required
+def checkout():
+    cart = _get_cart()
+    if not cart:
+        flash("Tu carrito está vacío.", "warning")
+        return redirect(url_for('cart'))
+
+    try:
+        direccion_envio = request.form.get("direccion_envio", "Sin dirección")
+        total = Decimal('0.00')
+        items_guardar = []
+
+        # cart: key -> item
+        for key, info in cart.items():
+            prod_id = int(info.get('id'))
+            cantidad = int(info.get('cantidad', 1))
+            nombre_producto = info.get('nombre')
+            precio_unitario = Decimal(str(info.get('precio', '0')))
+            subtotal = precio_unitario * cantidad
+            total += subtotal
+
+            items_guardar.append({
+                'id_producto': prod_id,
+                'cantidad': cantidad,
+                'precio_unitario': precio_unitario,
+                'subtotal': subtotal,
+                'nombre_producto': nombre_producto,
+                'talla': info.get('talla'),
+                'color': info.get('color')
+            })
+
+        factura = Factura(
+            id_usuario=str(getattr(current_user, 'id', current_user)),  # ajusta si tu usuario usa otra propiedad
+            direccion_envio=direccion_envio,
+            total=total,
+            estado="pendiente"
+        )
+        db.session.add(factura)
+        db.session.flush()  # para obtener id_factura
+
+        for it in items_guardar:
+            item = FacturaItem(
+                id_factura=factura.id_factura,
+                id_producto=it['id_producto'],
+                cantidad=it['cantidad'],
+                precio_unitario=it['precio_unitario'],
+                subtotal=it['subtotal'],
+                nombre_producto=it['nombre_producto'],
+                talla=it['talla'],
+                color=it['color']
+            )
+            db.session.add(item)
+
+        db.session.commit()
+        session.pop('cart', None)
+        flash("Factura creada con éxito. ID: {}".format(factura.id_factura), "success")
+        return redirect(url_for("invoice_detail", factura_id=factura.id_factura))
+
+    except Exception as e:
+        db.session.rollback()
+        flash("Error al crear la factura: {}".format(str(e)), "danger")
+        return redirect(url_for('cart'))
+
+@app.route('/invoice/<int:factura_id>')
+@login_required
+def invoice_detail(factura_id):
+    factura = Factura.query.get_or_404(factura_id)
+    return render_template("factura.html", factura=factura)
+
+# Ruta: usa product_id para coincidir con el template corregido
+@app.route('/cart/add/<int:product_id>', methods=['POST'])
+@login_required
+def add_to_cart(product_id):
+    producto = Producto.query.get_or_404(product_id)
+
+    talla = request.form.get('talla') or request.form.get('size')
+    color = request.form.get('color')
+
+    if not talla or not color:
+        flash('Por favor selecciona talla y color antes de añadir al carrito.', 'warning')
+        return redirect(url_for('catalog'))  # ajusta si tu vista de catálogo usa otro endpoint
+
+    cart = _get_cart()
+
+    key = f"{product_id}:{talla}:{color}"
+
+    # precio seguro
+    precio_attr = getattr(producto, 'precio_producto', None)
+    if precio_attr is None:
+        precio_attr = getattr(producto, 'precio', 0)
+    try:
+        precio_float = float(precio_attr)
+    except Exception:
+        precio_float = 0.0
+
+    # generar imagen para la sesión: si tienes longblob lo convertimos a base64; si no, ruta por defecto
+    imagen_src = '/static/no-image.png'
+    try:
+        foto = getattr(producto, 'foto_producto', None)
+        if foto:
+            imagen_src = 'data:image/jpeg;base64,' + base64.b64encode(foto).decode()
+    except Exception:
+        imagen_src = '/static/no-image.png'
+
+    # añadir o aumentar
+    if key in cart:
+        cart[key]['cantidad'] = int(cart[key].get('cantidad', 0)) + 1
+    else:
+        cart[key] = {
+            'id': product_id,
+            'nombre': producto.nombre,
+            'precio': precio_float,
+            'cantidad': 1,
+            'talla': talla,
+            'color': color,
+            'imagen': imagen_src
+        }
+
+    session['cart'] = cart
+    session.modified = True
+
+    flash(f"{producto.nombre} agregado al carrito (Talla {talla}, Color {color})", 'success')
+    return redirect(url_for('cart'))  # endpoint que muestra el carrito (ver abajo)
+
+@app.route("/carrito")
+def view_cart():
+    cart = session.get("cart", {})
+
+    # Convertir a lista de dicts para que la plantilla pueda iterar fácilmente
+    carrito = []
+    total = 0
+
+    for product_id, item in cart.items():
+        subtotal = item["precio"] * item["cantidad"]
+        total += subtotal
+        carrito.append({
+            "id": product_id,
+            "nombre": item["nombre"],
+            "precio": item["precio"],
+            "cantidad": item["cantidad"],
+            "talla": item.get("talla", "M"),
+            "color": item.get("color", "Negro"),
+            "imagen": item.get("imagen", "https://via.placeholder.com/60"),
+            "subtotal": subtotal
+        })
+
+    return render_template("cart.html", carrito=carrito, total=total)
+
+@app.route('/cart/update', methods=['POST'])
+@login_required
+def update_cart():
+    key = request.form.get('key')
+    action = request.form.get('action')  # 'increase' | 'decrease'
+    cart = _get_cart()
+
+    if not key or key not in cart:
+        flash('Elemento no encontrado en el carrito.', 'warning')
+        return redirect(url_for('cart'))
+
+    if action == 'increase':
+        cart[key]['cantidad'] = int(cart[key].get('cantidad', 0)) + 1
+    elif action == 'decrease':
+        cart[key]['cantidad'] = max(1, int(cart[key].get('cantidad', 1)) - 1)
+
+    session['cart'] = cart
+    session.modified = True
+    return redirect(url_for('cart'))
+
+
+@app.route('/cart/remove', methods=['POST'])
+def remove_from_cart():
+    product_id = request.form.get("id")
+    talla = request.form.get("talla")
+    color = request.form.get("color")
+
+    if "cart" not in session:
+        session["cart"] = {}
+
+    cart = session["cart"]
+
+    if product_id in cart:
+        # Si no hay variaciones de talla/color, simplemente eliminar
+        if isinstance(cart[product_id], dict):
+            if (cart[product_id].get("talla") == talla and
+                cart[product_id].get("color") == color):
+                del cart[product_id]
+        elif isinstance(cart[product_id], list):
+            # Buscar en la lista la variante
+            cart[product_id] = [
+                item for item in cart[product_id]
+                if not (item["talla"] == talla and item["color"] == color)
+            ]
+            if not cart[product_id]:  # Si ya no quedan variantes
+                del cart[product_id]
+
+    session["cart"] = cart
+    flash("Producto eliminado del carrito", "success")
+    return redirect(url_for("view_cart"))
+
 # -----------------------
 # Ejecutar app
 # -----------------------
 if __name__ == '__main__':
-    # Antes de correr, asegúrate:
-    # 1) Crear la base de datos 'fashion_fusion' en phpMyAdmin
-    # 2) Instalar PyMySQL: pip install PyMySQL
-    # 3) Poner variables de entorno DB_USER/DB_PASS si usas credenciales diferentes
     with app.app_context():
         create_default_data()
     app.run(debug=True)

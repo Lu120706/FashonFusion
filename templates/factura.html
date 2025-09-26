@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Factura{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="card shadow-lg border rounded-3">
+    <div class="card-body">
+      <h2 class="mb-4 text-center">🧾 Factura</h2>
+
+      <p><strong>Número de Factura:</strong> {{ factura.id_factura }}</p>
+      <p><strong>Cliente:</strong> {{ factura.usuario.nombre }}</p>
+      <p><strong>Fecha:</strong> {{ factura.creado_en.strftime("%d/%m/%Y %H:%M") }}</p>
+
+      <table class="table table-bordered mt-4">
+        <thead class="table-light">
+          <tr class="text-center">
+            <th>Producto</th>
+            <th>Talla</th>
+            <th>Color</th>
+            <th>Cantidad</th>
+            <th>Precio Unitario</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in factura.items %}
+          <tr>
+            <td>{{ item.nombre_producto }}</td>
+            <td class="text-center">{{ item.talla or '-' }}</td>
+            <td class="text-center">{{ item.color or '-' }}</td>
+            <td class="text-center">{{ item.cantidad }}</td>
+            <td class="text-center">${{ "%.2f"|format(item.precio_unitario) }}</td>
+            <td class="text-center">${{ "%.2f"|format(item.subtotal) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="d-flex justify-content-end mt-3">
+        <h4>Total: <span class="text-success">${{ "%.2f"|format(factura.total) }}</span></h4>
+      </div>
+
+      <div class="text-center mt-4">
+        <a href="{{ url_for('catalog') }}" class="btn btn-primary">Seguir Comprando</a>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">Volver al inicio</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
