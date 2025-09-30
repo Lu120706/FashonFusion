@@ -90,6 +90,21 @@ class Usuario(db.Model):
             return False
         return check_password_hash(self.contrasena, raw)
     
+    @property
+    def is_active(self):
+        return True
+
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+    def get_id(self):
+        return str(self.id_usuario)
+    
 class Pqrs(db.Model):
     __tablename__ = 'pqrs'
     id_pqrs = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -192,7 +207,7 @@ login_manager.login_view = "login"   # redirige aquí si no está logueado
 
 @login_manager.user_loader
 def load_user(user_id):
-    return Usuario.query.get(int(user_id))
+    return Usuario.query.filter_by(id_usuario=str(user_id)).first()
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -507,6 +522,9 @@ def register():
     return render_template('register.html')
 
 # Login
+from flask_login import login_user
+from flask import session
+
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
@@ -514,16 +532,22 @@ def login():
         password = request.form.get('password', '')
         user = Usuario.query.filter_by(id_usuario=username).first()
         if user and user.check_password(password):
-            # Guardar sólo lo necesario en session
+            # -- marcar al usuario como logueado con Flask-Login --
+            login_user(user)                      # <- ESTO es crítico
+            session.permanent = True              # opcional: hace la sesión 'permanente'
+            # -- guardar sólo datos necesarios en session (opcional) --
             session['username'] = user.id_usuario
-            session['role'] = user.id_rol  # p.ej. 'a' o 'u'
+            session['role'] = user.id_rol
             app.logger.info(f"Usuario logueado: {user.id_usuario} role: {user.id_rol}")
+
             # inicializar carrito en memoria si no existe
             if username not in SHOPPING_CARTS:
                 SHOPPING_CARTS[username] = []
             session['cart'] = SHOPPING_CARTS[username]
+
             flash('¡Bienvenido!', 'success')
             return redirect(url_for('admin_users') if user.id_rol == 'a' else url_for('index'))
+
         flash('Usuario o contraseña incorrectos', 'danger')
     return render_template('login.html')
 
@@ -1186,6 +1210,25 @@ def checkout():
         flash("Tu carrito está vacío.", "warning")
         return redirect(url_for('cart'))
 
+    # seguridad extra (por si acaso)
+    if not getattr(current_user, "is_authenticated", False):
+        flash("Debes iniciar sesión para completar la compra.", "warning")
+        return redirect(url_for('login'))
+
+    # --- asegurar que user_id siempre existe ---
+    # Intentamos obtener la propiedad id_usuario; si no existe, usamos get_id()
+    user_id = None
+    if hasattr(current_user, "id_usuario") and current_user.id_usuario is not None:
+        user_id = str(current_user.id_usuario)
+    else:
+        # get_id() normalmente devuelve str o None
+        user_id = current_user.get_id()
+
+    if user_id is None:
+        flash("Error de sesión: vuelve a iniciar sesión.", "danger")
+        return redirect(url_for('login'))
+    # ------------------------------------------------
+
     try:
         direccion_envio = request.form.get("direccion_envio", "Sin dirección")
         total = Decimal('0.00')
@@ -1211,34 +1254,35 @@ def checkout():
             })
 
         factura = Factura(
-            id_usuario=str(getattr(current_user, 'id', current_user)),  # ajusta si tu usuario usa otra propiedad
-            direccion_envio=direccion_envio,
-            total=total,
-            estado="pendiente"
+            id_usuario = user_id,            # <-- siempre definido, compatible con VARCHAR(15)
+            direccion_envio = direccion_envio,
+            total = total,
+            estado = "pendiente"
         )
         db.session.add(factura)
         db.session.flush()  # para obtener id_factura
 
         for it in items_guardar:
             item = FacturaItem(
-                id_factura=factura.id_factura,
-                id_producto=it['id_producto'],
-                cantidad=it['cantidad'],
-                precio_unitario=it['precio_unitario'],
-                subtotal=it['subtotal'],
-                nombre_producto=it['nombre_producto'],
-                talla=it['talla'],
-                color=it['color']
+                id_factura = factura.id_factura,
+                id_producto = it['id_producto'],
+                cantidad = it['cantidad'],
+                precio_unitario = it['precio_unitario'],
+                subtotal = it['subtotal'],
+                nombre_producto = it['nombre_producto'],
+                talla = it['talla'],
+                color = it['color']
             )
             db.session.add(item)
 
         db.session.commit()
         session.pop('cart', None)
-        flash("Factura creada con éxito. ID: {}".format(factura.id_factura), "success")
+        flash(f"Factura creada con éxito. ID: {factura.id_factura}", "success")
         return redirect(url_for("invoice_detail", factura_id=factura.id_factura))
 
     except Exception as e:
         db.session.rollback()
+        app.logger.exception("Error creando factura")
         flash("Error al crear la factura: {}".format(str(e)), "danger")
         return redirect(url_for('cart'))
 
