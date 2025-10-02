@@ -49,24 +49,16 @@
                       Carrito {% if session.get('cart') %}({{ session['cart']|length }}){% endif %}
                   </a>
                 </li>
-                
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('enviar_pqrs') }}">PQRS</a>
-                </li>
-
                 {% if current_user %}
                     {% if is_admin %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_users') }}">Admin: usuarios</a>
+                            <a class="nav-link" href="{{ url_for('admin_users') }}">Usuarios</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_products') }}">Admin: productos</a>
+                            <a class="nav-link" href="{{ url_for('admin_products') }}">Productos</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_pqrs') }}">Admin: PQRS</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('listar_roles') }}">Admin: ROL</a>
+                            <a class="nav-link" href="{{ url_for('listar_roles') }}">Rol</a>
                         </li>
                     {% endif %}
                     <li class="nav-item">
@@ -78,9 +70,6 @@
                 {% else %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('login') }}">Iniciar sesión</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('register') }}">Registro</a>
                     </li>
                 {% endif %}
             </ul>
