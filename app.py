@@ -104,27 +104,6 @@ class Usuario(db.Model):
 
     def get_id(self):
         return str(self.id_usuario)
-    
-class Pqrs(db.Model):
-    __tablename__ = 'pqrs'
-    id_pqrs = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    tipo = db.Column(db.String(25), nullable=False)
-    comentario_pqrs = db.Column(db.Text, nullable=False)
-    fecha_hora = db.Column(db.DateTime, default=db.func.current_timestamp())
-    foto_pqrs = db.Column(db.String(400), nullable=True)   # ruta/filename
-    id_usuario = db.Column(db.String(80), nullable=False)  # guarda session['username']
-    estado = db.Column(db.String(30), nullable=False, default='Pendiente')
-
-class Review(db.Model):
-    __tablename__ = 'resenas'
-    id_resenas = db.Column(db.Integer, primary_key=True, autoincrement=True)  # coincide con tu tabla
-    id_producto = db.Column(db.Integer, nullable=False, index=True)
-    id_usuario = db.Column(db.String(15), nullable=False, index=True)
-    calidad = db.Column(db.SmallInteger, nullable=False)
-    comodidad = db.Column(db.SmallInteger, nullable=False)
-    comentario_resena = db.Column(db.Text, nullable=False)
-    foto_comentario = db.Column(db.LargeBinary, nullable=True)  # longblob en BD
-    creado_en = db.Column(db.DateTime, server_default=db.func.now())
 
 class Producto(db.Model):
     __tablename__ = 'productos'
@@ -267,12 +246,6 @@ def login_required(f):
     return decorated
 
 def role_required(allowed_role):
-    """
-    Decorador que acepta 'allowed_role' como:
-      - el id corto (ej. 'a' / 'u') almacenado en la tabla rol.id_rol, o
-      - el nombre descriptivo (ej. 'admin', 'user').
-    Resuelve allowed_role con find_or_create_role() y compara contra session['role'].
-    """
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
@@ -310,14 +283,7 @@ def role_required(allowed_role):
 # Helper: encontrar/crear rol compatible con esquema actual (varchar(1))
 # -----------------------
 def find_or_create_role(key):
-    """
-    Busca un rol usando:
-      1) id_rol == key
-      2) nombre ILIKE %key%
-      3) id_rol == first_char_of_key (compatibilidad VARCHAR(1))
-    Si no existe, intenta crear usando first_char_of_key como id_rol.
-    Retorna el objeto Rol o None si no fue posible.
-    """
+
     if not key:
         return None
     key = str(key).strip()
@@ -387,91 +353,6 @@ def index():
 def catalog():
     productos = Producto.query.all()
     return render_template('catalog.html', products=productos)
-
-@app.route("/pqrs", methods=["GET", "POST"])
-@login_required
-def enviar_pqrs():
-    # POST = crear PQRS
-    if request.method == "POST":
-        tipo = request.form.get("tipo", "").strip()
-        mensaje = request.form.get("mensaje", "").strip()
-        if not tipo or not mensaje:
-            flash("Completa tipo y mensaje.", "warning")
-            return redirect(url_for("enviar_pqrs"))
-
-        id_usuario = session.get("username")  # según tu modelo
-        if not id_usuario:
-            flash("Debes iniciar sesión.", "danger")
-            return redirect(url_for("login"))
-
-        # manejo de foto
-        foto_filename = None
-        f = request.files.get("foto")
-        if f and f.filename:
-            if allowed_file(f.filename):
-                filename = secure_filename(f.filename)
-                ts = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
-                filename = f"{ts}_{filename}"
-                dest = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                f.save(dest)
-                foto_filename = os.path.join("uploads", "pqrs", filename)  # ruta relativa para static
-            else:
-                flash("Tipo de archivo no permitido.", "warning")
-                return redirect(url_for("enviar_pqrs"))
-
-        nueva = Pqrs(
-            tipo=tipo,
-            comentario_pqrs=mensaje,
-            foto_pqrs=foto_filename,
-            id_usuario=str(id_usuario)  # guardamos el username como cadena
-        )
-        db.session.add(nueva)
-        try:
-            db.session.commit()
-            flash("✅ PQRS enviada con éxito", "success")
-        except Exception as e:
-            db.session.rollback()
-            app.logger.exception("Error guardando PQRS")
-            flash("Ocurrió un error al guardar. Intenta de nuevo.", "danger")
-
-        return redirect(url_for("enviar_pqrs"))
-
-    # GET = mostrar formulario + lista del usuario
-    id_usuario = session.get("username")
-    pqrs_list = []
-    if id_usuario:
-        pqrs_list = Pqrs.query.filter_by(id_usuario=str(id_usuario)).order_by(Pqrs.fecha_hora.desc()).all()
-    return render_template("pqrs.html", pqrs_list=pqrs_list)
-
-@app.route('/admin/pqrs')
-@role_required('admin')
-def admin_pqrs():
-    # Trae TODAS las PQRS sin filtrar por usuario
-    todas = Pqrs.query.order_by(Pqrs.fecha_hora.desc()).all()
-    app.logger.info("Admin %s cargó admin_pqrs; filas=%d", session.get('username'), len(todas))
-    return render_template('admin_pqrs.html', pqrs_list=todas)
-
-@app.route("/admin/pqrs/<int:id_pqrs>/estado", methods=["POST"])
-@role_required('admin')   # o la verificación de rol que uses
-def admin_change_pqrs_estado(id_pqrs):
-    app.logger.info("POST estado: %s user=%s", dict(request.form), session.get('username'))
-    nuevo_estado = request.form.get("estado")
-    if not nuevo_estado:
-        flash("Estado no enviado", "warning")
-        return redirect(url_for('admin_pqrs'))
-
-    pq = Pqrs.query.get_or_404(id_pqrs)
-    pq.estado = nuevo_estado
-    try:
-        db.session.commit()
-        flash(f"Estado de PQRS #{id_pqrs} actualizado a {nuevo_estado}.", "success")
-    except Exception:
-        db.session.rollback()
-        app.logger.exception("Error actualizando estado PQRS")
-        flash("Ocurrió un error al actualizar el estado.", "danger")
-
-    # <-- aquí redirigimos al panel admin (no al listado de usuarios)
-    return redirect(url_for('admin_pqrs'))
 
 # Registro público (rol 'user' por defecto)
 @app.route('/register', methods=['GET','POST'])
@@ -638,7 +519,7 @@ def product(pid):
     return render_template('product.html', product=p)
 
 @app.route('/cart')
-@login_required  # opcional, según tu app (si quieres que cualquiera vea carrito puedes quitarlo)
+@login_required 
 def cart():
     cart_dict = _get_cart()
     carrito = []
@@ -651,7 +532,7 @@ def cart():
         total += subtotal
 
         carrito.append({
-            'key': key,                   # identificador único dentro del carrito (product:talla:color)
+            'key': key,                  
             'id': item.get('id'),
             'nombre': item.get('nombre'),
             'precio': float(precio),
@@ -670,165 +551,6 @@ def clear_cart():
     session.modified = True
     flash("Carrito limpiado.", "info")
     return redirect(url_for("cart"))
-
-# -----------------------
-# Rutas para reseñas
-# -----------------------
-# -----------------------
-# Rutas para reseñas
-# -----------------------
-
-@app.route('/api/guardar_reseña', methods=['POST'])
-def guardar_resena():
-    id_usuario = session.get('username')
-    if not id_usuario:
-        return jsonify(success=False, message='Debes iniciar sesión.'), 401
-
-    id_producto = request.form.get('id_producto')
-    calidad = request.form.get('calidad')
-    comodidad = request.form.get('comodidad')
-    comentario = request.form.get('comentario_resena')
-
-    if not id_producto or not calidad or not comodidad:
-        return jsonify(success=False, message='Faltan datos.'), 400
-
-    try:
-        id_producto = int(id_producto)
-        calidad = int(calidad)
-        comodidad = int(comodidad)
-    except ValueError:
-        return jsonify(success=False, message='Valores inválidos.'), 400
-
-    foto_blob = None
-    if 'foto_comentario' in request.files:
-        f = request.files['foto_comentario']
-        if f and f.filename:
-            foto_blob = f.read()
-
-    new = Review(
-        id_producto=id_producto,
-        id_usuario=id_usuario,
-        calidad=calidad,
-        comodidad=comodidad,
-        comentario_resena=comentario,
-        foto_comentario=foto_blob
-    )
-    db.session.add(new)
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        return jsonify(success=False, message='Error interno'), 500
-
-    # IMPORTANT: devolvemos "id_resena" (singular) para que coincida con tu JS
-    return jsonify(success=True, resena={
-        "id_resena": new.id_resenas,
-        "id_usuario": new.id_usuario,
-        "calidad": new.calidad,
-        "comodidad": new.comodidad,
-        "comentario_resena": new.comentario_resena,
-        "creado_en": new.creado_en.strftime('%Y-%m-%d %H:%M'),
-        "foto_url": url_for('ver_foto_resena', rid=new.id_resenas) if new.foto_comentario else None
-    }), 201
-
-
-@app.route('/api/obtener_reseñas')
-def obtener_resenas():
-    pid = request.args.get('id_producto', type=int)
-    if not pid:
-        return jsonify(reseñas=[])
-    rows = Review.query.filter_by(id_producto=pid).order_by(Review.creado_en.desc()).all()
-    out = []
-    for r in rows:
-        out.append({
-            "id_resena": r.id_resenas,               # <-- nota: id_resena (singular)
-            "id_usuario": r.id_usuario,
-            "calidad": r.calidad,
-            "comodidad": r.comodidad,
-            "comentario_resena": r.comentario_resena,
-            "creado_en": r.creado_en.strftime('%Y-%m-%d %H:%M'),
-            "foto_url": url_for('ver_foto_resena', rid=r.id_resenas) if r.foto_comentario else None
-        })
-    return jsonify(reseñas=out)
-
-
-@app.route('/api/foto_resena/<int:rid>')
-def ver_foto_resena(rid):
-    r = Review.query.get_or_404(rid)
-    if not r.foto_comentario:
-        return "Sin imagen", 404
-    return r.foto_comentario, 200, {"Content-Type": "image/jpeg"}
-
-
-# ===================== EDITAR RESEÑA =====================
-@app.route('/api/editar_reseña', methods=['POST'])
-def editar_reseña():
-    if "username" not in session:
-        return jsonify(success=False, message="Debes iniciar sesión."), 401
-
-    # Tu frontend envía FormData, por eso usamos request.form
-    rid = request.form.get("id_resena") or request.form.get("id_resenas")
-    if not rid:
-        return jsonify(success=False, message="Falta id_resena"), 400
-    try:
-        rid = int(rid)
-    except ValueError:
-        return jsonify(success=False, message="id_resena inválido"), 400
-
-    review = Review.query.get_or_404(rid)
-    if review.id_usuario != session.get("username"):
-        return jsonify(success=False, message="No puedes editar reseñas de otros usuarios."), 403
-
-    # Actualizar campos si vienen
-    calidad = request.form.get("calidad")
-    comodidad = request.form.get("comodidad")
-    comentario = request.form.get("comentario_resena")
-
-    if calidad:
-        try:
-            review.calidad = int(calidad)
-        except ValueError:
-            pass
-    if comodidad:
-        try:
-            review.comodidad = int(comodidad)
-        except ValueError:
-            pass
-    if comentario is not None:
-        review.comentario_resena = comentario
-
-    # Si viene nueva foto
-    if 'foto_comentario' in request.files:
-        f = request.files['foto_comentario']
-        if f and f.filename:
-            review.foto_comentario = f.read()
-
-    db.session.commit()
-    return jsonify(success=True, message="Reseña actualizada")
-
-
-# ===================== ELIMINAR RESEÑA =====================
-@app.route('/api/eliminar_reseña', methods=['POST'])
-def eliminar_reseña():
-    if "username" not in session:
-        return jsonify(success=False, message="Debes iniciar sesión."), 401
-
-    data = request.get_json() or {}
-    rid = data.get("id_resena") or data.get("id_resenas")
-    if not rid:
-        return jsonify(success=False, message="Falta id_resena."), 400
-    try:
-        rid = int(rid)
-    except ValueError:
-        return jsonify(success=False, message="id_resena inválido."), 400
-
-    review = Review.query.get_or_404(rid)
-    if review.id_usuario != session.get("username"):
-        return jsonify(success=False, message="No puedes eliminar reseñas de otros usuarios."), 403
-
-    db.session.delete(review)
-    db.session.commit()
-    return jsonify(success=True, message="Reseña eliminada")
 
 @app.route('/cart/checkout', methods=['POST'])
 @login_required
