@@ -1,20 +1,36 @@
-import base64
+# stdlib
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, send_from_directory, jsonify
-from werkzeug.utils import secure_filename
-from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-from functools import wraps
-from flask_mail import Mail, Message
-from itsdangerous import URLSafeTimedSerializer, SignatureExpired
-from sqlalchemy import or_
-from flask_login import login_required, current_user
-from flask_login import LoginManager, UserMixin, login_user, logout_user
+import uuid
+import base64
 import logging
 from datetime import datetime
 from decimal import Decimal
-from flask_login import LoginManager
+from io import BytesIO
+from types import SimpleNamespace
+from functools import wraps
+
+# Flask & extensions (grupo lógico)
+from flask import (
+    Flask, render_template, request, redirect, url_for, session, flash, abort,
+    send_from_directory, jsonify, make_response, current_app
+)
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# DB / auth / mail
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import (
+    LoginManager, login_required, current_user, UserMixin, login_user, logout_user
+)
+from flask_mail import Mail, Message
+
+# security / utils
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired
+from sqlalchemy import or_
+
+# Third-party PDF (si lo usas siempre, está bien aquí; otra opción es importarlo dentro de la vista)
+from xhtml2pdf import pisa
+
 
 # -----------------------
 # Configuración
@@ -170,14 +186,6 @@ CAROUSEL_IMAGES = [
 SHOPPING_CARTS = {}
 
 # -----------------------
-# Config uploads para reseñas
-# -----------------------
-ALLOWED_EXTENSIONS = {'png','jpg','jpeg','gif'}
-UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads', 'resenas')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# -----------------------
 # Login Manager
 # -----------------------
 login_manager = LoginManager()
@@ -236,6 +244,25 @@ def _get_cart():
 # -----------------------
 # Helpers / decoradores
 # -----------------------
+def _static_file_to_datauri(filename):
+    """
+    Convierte un archivo en static/filename a data URI.
+    Uso: get logo: _static_file_to_datauri('logo.png') y pásalo al template.
+    Devuelve '' si no existe.
+    """
+    try:
+        static_folder = app.static_folder  # normalmente "static"
+        path = os.path.join(static_folder, filename)
+        if not os.path.isfile(path):
+            return ''
+        with open(path, "rb") as f:
+            data = f.read()
+        ext = os.path.splitext(filename)[1].lower().lstrip('.')
+        mime = f"image/{'jpeg' if ext in ('jpg','jpeg') else ext}"
+        return f"data:{mime};base64," + base64.b64encode(data).decode()
+    except Exception:
+        return ''
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -993,11 +1020,138 @@ def checkout():
         flash("Error al crear la factura: {}".format(str(e)), "danger")
         return redirect(url_for('cart'))
 
-@app.route('/invoice/<int:factura_id>')
+def _dict_to_namespace(d):
+    """Convierte recursivamente dicts en SimpleNamespace para acceso por atributos."""
+    if d is None:
+        return None
+    if isinstance(d, dict):
+        ns = SimpleNamespace()
+        for k, v in d.items():
+            # convertir listas que contienen dicts también
+            if isinstance(v, dict):
+                setattr(ns, k, _dict_to_namespace(v))
+            elif isinstance(v, list):
+                new_list = []
+                for el in v:
+                    if isinstance(el, dict):
+                        new_list.append(_dict_to_namespace(el))
+                    else:
+                        new_list.append(el)
+                setattr(ns, k, new_list)
+            else:
+                setattr(ns, k, v)
+        return ns
+    return d
+
+@app.route('/factura/<int:factura_id>')
 @login_required
 def invoice_detail(factura_id):
+    # Obtener factura y sus items desde la DB
     factura = Factura.query.get_or_404(factura_id)
-    return render_template("factura.html", factura=factura)
+
+    # Verificar permiso: solo el dueño o admin
+    try:
+        usuario_id_session = current_user.id_usuario if hasattr(current_user, 'id_usuario') else current_user.get_id()
+    except Exception:
+        usuario_id_session = current_user.get_id()
+
+    if str(factura.id_usuario) != str(usuario_id_session) and not getattr(current_user, 'is_admin', False):
+        abort(403)
+
+    # Obtener items
+    items_db = FacturaItem.query.filter_by(id_factura=factura.id_factura).all()
+
+    # Preparar items para plantilla (mismos campos que usas en factura.html)
+    items_preparados = []
+    total = Decimal('0.00')
+    for it in items_db:
+        precio = Decimal(str(getattr(it, 'precio_unitario', '0')))
+        cantidad = int(getattr(it, 'cantidad', 1))
+        subtotal = Decimal(str(getattr(it, 'subtotal', str(precio * cantidad))))
+        items_preparados.append({
+            'nombre_producto': getattr(it, 'nombre_producto', 'Producto'),
+            'talla': getattr(it, 'talla', '-') or '-',
+            'color': getattr(it, 'color', '-') or '-',
+            'cantidad': cantidad,
+            'precio_unitario': float(precio),
+            'subtotal': float(subtotal)
+        })
+        total += subtotal
+
+    # Preparar el objeto factura que espera tu plantilla factura.html
+    creado = getattr(factura, 'creado_en', None)
+    factura_ready = {
+        'id_factura': factura.id_factura,
+        'usuario': {'nombre': getattr(factura, 'nombre_cliente', getattr(current_user, 'nombre', factura.id_usuario))},
+        'creado_en': creado,
+        'items': items_preparados,
+        'total': float(total),
+        'direccion_envio': getattr(factura, 'direccion_envio', '') or 'No registrada'
+    }
+
+    # Convertir dicts a objetos para que en Jinja 'factura.items' sea iterable
+    factura_obj = _dict_to_namespace(factura_ready)
+
+    # Renderizar la plantilla que ya tienes: factura.html
+    return render_template('factura.html', factura=factura_obj)
+
+@app.route('/factura/<int:factura_id>/pdf')
+@login_required
+def factura_pdf(factura_id):
+    # Buscar factura y validar permisos
+    factura = Factura.query.get_or_404(factura_id)
+    usuario_session = getattr(current_user, 'id_usuario', None) or current_user.get_id()
+    if str(factura.id_usuario) != str(usuario_session) and not getattr(current_user, 'is_admin', False):
+        abort(403)
+
+    # Obtener items
+    items_db = FacturaItem.query.filter_by(id_factura=factura.id_factura).all()
+
+    # Preparar contexto para renderizar
+    creado = getattr(factura, 'creado_en', None)
+    creado_str = creado.strftime("%d/%m/%Y %H:%M") if creado else ''
+
+    factura_ctx = {
+        'id_factura': factura.id_factura,
+        'usuario': {'nombre': getattr(factura, 'nombre_cliente', getattr(factura, 'id_usuario', 'Cliente'))},
+        'creado_en_str': creado_str,
+        'direccion_envio': getattr(factura, 'direccion_envio', '') or 'No registrada',
+        'total': float(factura.total) if factura.total is not None else 0.0
+    }
+
+    items_ctx = []
+    for it in items_db:
+        items_ctx.append({
+            'nombre_producto': getattr(it, 'nombre_producto', 'Producto'),
+            'talla': getattr(it, 'talla', '-') or '-',
+            'color': getattr(it, 'color', '-') or '-',
+            'cantidad': int(getattr(it, 'cantidad', 1)),
+            'precio_unitario': float(getattr(it, 'precio_unitario', 0)),
+            'subtotal': float(getattr(it, 'subtotal', 0))
+        })
+
+    # Embed logo as data URI (si tienes static/logo.png)
+    logo_datauri = _static_file_to_datauri('logo.png')  # ajusta el nombre si tu logo se llama distinto
+
+    # Renderizar HTML (usa la plantilla optimizada para PDF)
+    html_out = render_template('factura_pdf.html',
+                               factura=factura_ctx,
+                               items=items_ctx,
+                               logo_datauri=logo_datauri)
+
+    # Generar PDF con xhtml2pdf
+    pdf_io = BytesIO()
+    pisa_status = pisa.CreatePDF(src=html_out, dest=pdf_io, encoding='utf-8')
+
+    if pisa_status.err:
+        app.logger.error("xhtml2pdf error: %s", pisa_status.err)
+        return "Error generando PDF", 500
+
+    pdf_bytes = pdf_io.getvalue()
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=factura_{factura.id_factura}.pdf'
+    return response
 
 # Ruta: usa product_id para coincidir con el template corregido
 @app.route('/cart/add/<int:product_id>', methods=['POST'])
@@ -1128,6 +1282,16 @@ def remove_from_cart():
     session["cart"] = cart
     flash("Producto eliminado del carrito", "success")
     return redirect(url_for("view_cart"))
+
+def format_currency(value, symbol='$'):
+    try:
+        v = Decimal(value)
+    except Exception:
+        return f"{symbol}0.00"
+    return f"{symbol}{v:,.2f}"
+
+# Registrar en el app (ejecutar tras crear `app`)
+app.jinja_env.filters['currency'] = format_currency
 
 # -----------------------
 # Ejecutar app

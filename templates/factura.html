@@ -39,10 +39,13 @@
       <div class="d-flex justify-content-end mt-3">
         <h4>Total: <span class="text-success">${{ "%.2f"|format(factura.total) }}</span></h4>
       </div>
-
       <div class="text-center mt-4">
         <a href="{{ url_for('catalog') }}" class="btn btn-primary">Seguir Comprando</a>
         <a href="{{ url_for('index') }}" class="btn btn-secondary">Volver al inicio</a>
+        <!-- Botón para descargar PDF -->
+        <a href="{{ url_for('factura_pdf', factura_id=factura.id_factura) }}" class="btn btn-success ms-2" target="_blank">
+          📄 Descargar comprobante (PDF)
+        </a>
       </div>
     </div>
   </div>

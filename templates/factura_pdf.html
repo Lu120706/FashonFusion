@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Factura {{ factura.id_factura }}</title>
+  <style>
+    /* Evita CSS modernos — usa reglas simples */
+    @page { size: A4; margin: 20mm; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #222; margin:0; padding:0; }
+    .container { padding: 0 4mm; }
+    header { width:100%; margin-bottom:12px; overflow:hidden; }
+    .left { float:left; width:60%; }
+    .right { float:right; width:38%; text-align:right; font-size:12px; }
+    h1 { margin:0 0 6px 0; font-size:16px; }
+    .small { font-size:11px; color:#666; }
+    table { width:100%; border-collapse: collapse; margin-top:8px; font-size:12px; }
+    th, td { padding:6px 8px; border:1px solid #ddd; vertical-align: middle; }
+    th { background:#f5f5f5; text-align:left; font-weight:normal; }
+    tfoot td { border:none; padding-top:10px; font-weight:bold; }
+    .text-right { text-align:right; }
+    .note { margin-top:14px; font-size:11px; color:#444; }
+    /* limpiar floats */
+    .clearfix::after { content: ""; clear: both; display: table; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="clearfix">
+      <div class="left">
+        {% if logo_datauri %}
+          <img src="{{ logo_datauri }}" alt="Logo" style="max-width:140px; height:auto;">
+        {% else %}
+          <h1>TuEmpresa</h1>
+        {% endif %}
+        <div class="small">Dirección · Teléfono · NIT</div>
+      </div>
+      <div class="right">
+        <div>Factura: <strong>{{ factura.id_factura }}</strong></div>
+        <div>Fecha: {{ factura.creado_en_str }}</div>
+        <div>Cliente: {{ factura.usuario_nombre }}</div>
+      </div>
+    </header>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th style="width:8%;">Talla</th>
+          <th style="width:8%;">Color</th>
+          <th style="width:8%;" class="text-right">Cant.</th>
+          <th style="width:14%;" class="text-right">Precio</th>
+          <th style="width:14%;" class="text-right">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+        <tr>
+          <td>{{ it.nombre_producto }}</td>
+          <td>{{ it.talla }}</td>
+          <td>{{ it.color }}</td>
+          <td class="text-right">{{ it.cantidad }}</td>
+          <td class="text-right">${{ "%.2f"|format(it.precio_unitario) }}</td>
+          <td class="text-right">${{ "%.2f"|format(it.subtotal) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="4"></td>
+          <td class="text-right"><strong>Total</strong></td>
+          <td class="text-right"><strong>${{ "%.2f"|format(factura.total) }}</strong></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div class="note">
+      <strong>Dirección de envío:</strong><br>
+      {{ factura.direccion_envio }}
+    </div>
+  </div>
+</body>
+</html>
