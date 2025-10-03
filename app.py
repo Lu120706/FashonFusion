@@ -853,21 +853,6 @@ def admin_delete_product(id_producto):
         db.session.rollback()
         flash(f'❌ Error eliminando: {e}', 'danger')
     return redirect(url_for('admin_products'))
-    
-@app.route('/actualizar_estado/<int:id>', methods=['POST'])
-def actualizar_estado(id):
-    if not session.get('username') or session.get('role') != 'admin':
-        flash("No tienes permisos para realizar esta acción", "danger")
-        return redirect(url_for('listar_pqrs'))
-
-    nuevo_estado = request.form.get("estado")
-
-    pqrs = Pqrs.query.get_or_404(id)
-    pqrs.estado = nuevo_estado
-    db.session.commit()
-
-    flash("Estado de la PQRS actualizado correctamente ✅", "success")
-    return redirect(url_for('listar_pqrs'))
 
 @app.route("/roles")
 @role_required('admin')
