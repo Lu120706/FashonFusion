@@ -1,4 +1,4 @@
-# stdlib
+#Librerias varias usadas
 import os
 import uuid
 import base64
@@ -9,7 +9,7 @@ from io import BytesIO
 from types import SimpleNamespace
 from functools import wraps
 
-# Flask & extensions (grupo lógico)
+#Extensiones de flask
 from flask import (
     Flask, render_template, request, redirect, url_for, session, flash, abort,
     send_from_directory, jsonify, make_response, current_app
@@ -17,18 +17,18 @@ from flask import (
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# DB / auth / mail
+#Base de datos, autenticacion y envio al correo para recuperar contraseña
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     LoginManager, login_required, current_user, UserMixin, login_user, logout_user
 )
 from flask_mail import Mail, Message
 
-# security / utils
+#Seguridad
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired
 from sqlalchemy import or_
 
-# Third-party PDF (si lo usas siempre, está bien aquí; otra opción es importarlo dentro de la vista)
+#Pdf
 from xhtml2pdf import pisa
 
 
@@ -202,7 +202,6 @@ def allowed_file(filename):
 def _get_cart():
     """
     Devuelve un diccionario con el carrito garantizado.
-    Si la sesión tiene formato antiguo (lista), intenta migrarlo.
     """
     cart = session.get('cart', {})
 
@@ -247,8 +246,6 @@ def _get_cart():
 def _static_file_to_datauri(filename):
     """
     Convierte un archivo en static/filename a data URI.
-    Uso: get logo: _static_file_to_datauri('logo.png') y pásalo al template.
-    Devuelve '' si no existe.
     """
     try:
         static_folder = app.static_folder  # normalmente "static"
@@ -430,9 +427,6 @@ def register():
     return render_template('register.html')
 
 # Login
-from flask_login import login_user
-from flask import session
-
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
