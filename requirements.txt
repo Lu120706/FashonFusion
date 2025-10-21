@@ -1,14 +1,13 @@
 # Dependencias principales del proyecto
 Flask>=2.2
-Flask-SQLAlchemy>=3.0
 Werkzeug>=2.2
-Flask-Mail==0.10.0
-itsdangerous==2.2.0
+itsdangerous>=2.2.0
 
-# Conector para MySQL (usar con SQLAlchemy)
+# ORM y conexión a base de datos MySQL
+Flask-SQLAlchemy>=3.0
 PyMySQL>=1.1.0
 
-# Opcional pero recomendado: migraciones de base de datos
+# Migraciones de base de datos (opcional pero recomendado)
 Flask-Migrate>=4.0
 
 # Manejo de contraseñas seguras
@@ -17,4 +16,11 @@ bcrypt>=4.0
 # Manejo de sesiones y login
 Flask-Login>=0.6.3
 
-Flask-Login>=0.6
+# Envío de correos (si tu proyecto lo usa)
+Flask-Mail==0.10.0
+
+# Generación de PDF (para facturas, reportes, etc.)
+xhtml2pdf>=0.2.10
+
+# Para depuración opcional o logs de desarrollo
+python-dotenv>=1.0.0
