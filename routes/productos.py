@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
 from werkzeug.utils import secure_filename
 import datetime, os
-from app import db
+from extensions import db
 from models import Producto
 from decorators import role_required # si lo tienes en otro archivo, ajústalo
 
@@ -115,7 +115,5 @@ def admin_delete_product(id_producto):
 
 @productos_bp.route('/product/<int:pid>')
 def product(pid):
-    p = next((x for x in PRODUCTS if x['id'] == pid), None)
-    if not p:
-        abort(404)
-    return render_template('product.html', product=p)
+    producto = Producto.query.get_or_404(pid)
+    return render_template('product.html', product=producto)

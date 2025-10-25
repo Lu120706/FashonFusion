@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Carrito{% endblock %}
+
 {% block content %}
 <div class="container mt-5">
   <div class="card shadow-lg border rounded-3">
@@ -7,9 +8,9 @@
       <h2 class="mb-4 text-center">🛒 Carrito de Compras</h2>
 
       {% if carrito %}
-      <table class="table table-bordered align-middle">
+      <table class="table table-bordered align-middle text-center">
         <thead class="table-light">
-          <tr class="text-center">
+          <tr>
             <th>Producto</th>
             <th>Talla</th>
             <th>Color</th>
@@ -22,35 +23,32 @@
         <tbody>
           {% for item in carrito %}
           <tr>
-            <td class="align-middle">
-              <img src="{{ item.imagen }}" alt="{{ item.nombre }}" style="width: 60px; height: auto; margin-right: 10px;">
+            <td class="align-middle text-start">
+              <img src="{{ item.imagen }}" alt="{{ item.nombre }}" class="cart-img">
               {{ item.nombre }}
             </td>
-            <td class="text-center align-middle">{{ item.talla }}</td>
-            <td class="text-center align-middle">{{ item.color }}</td>
-            <td class="text-center align-middle">${{ "%.2f"|format(item.precio) }}</td>
-
-            <td class="text-center align-middle">
-              <div class="d-flex justify-content-center align-items-center">
-                <form action="{{ url_for('update_cart') }}" method="POST" class="d-inline me-1">
+            <td>{{ item.talla }}</td>
+            <td>{{ item.color }}</td>
+            <td>${{ "%.2f"|format(item.precio) }}</td>
+            <td>
+              <div class="quantity-control">
+                <form action="{{ url_for('update_cart') }}" method="POST">
                   <input type="hidden" name="key" value="{{ item.key }}">
                   <input type="hidden" name="action" value="decrease">
                   <button type="submit" class="btn btn-sm btn-outline-secondary">-</button>
                 </form>
 
-                <span class="mx-2 align-middle">{{ item.cantidad }}</span>
+                <span class="mx-2">{{ item.cantidad }}</span>
 
-                <form action="{{ url_for('update_cart') }}" method="POST" class="d-inline ms-1">
+                <form action="{{ url_for('update_cart') }}" method="POST">
                   <input type="hidden" name="key" value="{{ item.key }}">
                   <input type="hidden" name="action" value="increase">
                   <button type="submit" class="btn btn-sm btn-outline-secondary">+</button>
                 </form>
               </div>
             </td>
-
-            <td class="text-center align-middle">${{ "%.2f"|format(item.subtotal) }}</td>
-
-            <td class="text-center align-middle">
+            <td>${{ "%.2f"|format(item.subtotal) }}</td>
+            <td>
               <form action="{{ url_for('remove_from_cart') }}" method="POST">
                 <input type="hidden" name="key" value="{{ item.key }}">
                 <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
@@ -60,10 +58,10 @@
           {% endfor %}
         </tbody>
       </table>
-      
-      <div class="d-flex justify-content-between align-items-center mt-4">
+
+      <div class="cart-footer">
         <h4>Total: <span class="text-success">${{ "%.2f"|format(total) }}</span></h4>
-        <form action="{{ url_for('checkout') }}" method="POST" class="d-flex">
+        <form action="{{ url_for('checkout') }}" method="POST" class="checkout-form">
           <input type="text" name="direccion_envio" placeholder="Dirección de envío" class="form-control me-2" required>
           <button type="submit" class="btn btn-success">Proceder al pago</button>
         </form>
@@ -74,4 +72,12 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cart.css') }}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/cart.js') }}"></script>
 {% endblock %}

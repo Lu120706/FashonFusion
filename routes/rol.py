@@ -1,6 +1,6 @@
 # routes/rol.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from app import db
+from extensions import db
 from models import Rol
 from decorators import role_required  # asegúrate que esté en tu proyecto
 

@@ -1,0 +1,11 @@
+/* Estrellas */
+.star-rating { direction: rtl; display: inline-flex; gap: 6px; font-size: 24px; }
+.star-rating input { display:none; }
+.star-rating label { cursor:pointer; user-select:none; opacity:0.35; transition:opacity .12s; }
+.star-rating input:checked ~ label,
+.star-rating label:hover,
+.star-rating label:hover ~ label { opacity:1; color:gold; }
+
+.single-review { margin-bottom:12px; }
+.single-review .meta { font-size: .9rem; color: #6c757d; }
+.single-review .actions { margin-top:6px; }

@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block title %}Iniciar Sesión - Marca Ropa{% endblock %}
 
 {% block content %}
@@ -21,10 +20,11 @@
                         <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
                     </div>
                 </form>
-                                <p class="text-center mt-2">
+
+                <p class="text-center mt-2">
                     <a href="{{ url_for('forgot_password') }}">¿Olvidaste tu contraseña?</a>
                 </p>
-                
+
                 <p class="text-center mt-3">
                     ¿No tienes cuenta? <a href="{{ url_for('register') }}">Regístrate aquí</a>
                 </p>

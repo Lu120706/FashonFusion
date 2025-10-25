@@ -4,8 +4,8 @@ from flask_login import login_required, current_user
 from io import BytesIO
 from decimal import Decimal
 from xhtml2pdf import pisa
-from ..models import Factura, FacturaItem
-from .utils import _dict_to_namespace, _static_file_to_datauri  # funciones auxiliares si las tienes
+from models import Factura, FacturaItem
+from utils import _dict_to_namespace, _static_file_to_datauri  # funciones auxiliares si las tienes
 
 factura_bp = Blueprint('factura', __name__)
 

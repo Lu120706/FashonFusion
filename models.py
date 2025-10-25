@@ -49,3 +49,24 @@ class Factura(db.Model):
     estado = db.Column(db.Enum('pendiente', 'pagada', 'enviada', 'cancelada'), default='pendiente')
     total = db.Column(db.Numeric(10, 2), nullable=False)
     creado_en = db.Column(db.DateTime, default=datetime.utcnow)
+
+class FacturaItem(db.Model):
+    __tablename__ = 'factura_items'
+
+    id_item = db.Column(db.Integer, primary_key=True)
+    id_factura = db.Column(db.Integer, db.ForeignKey('factura.id_factura'), nullable=False)
+    id_producto = db.Column(db.Integer, db.ForeignKey('productos.id_producto'), nullable=True)
+    cantidad = db.Column(db.Integer, nullable=False)
+    precio_unitario = db.Column(db.Numeric(10, 2), nullable=False)
+    subtotal = db.Column(db.Numeric(10, 2), nullable=False)
+    nombre_producto = db.Column(db.String(255))
+    talla = db.Column(db.String(20))
+    color = db.Column(db.String(25))
+    creado_en = db.Column(db.DateTime, default=datetime.utcnow)
+
+    producto = db.relationship('Producto', backref='factura_items', lazy=True)
+    factura = db.relationship('Factura', backref=db.backref('items', lazy=True))
+
+    def calcular_subtotal(self):
+        """Calcula el subtotal automáticamente."""
+        self.subtotal = self.cantidad * self.precio_unitario

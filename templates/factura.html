@@ -7,13 +7,15 @@
     <div class="card-body">
       <h2 class="mb-4 text-center">🧾 Factura</h2>
 
-      <p><strong>Número de Factura:</strong> {{ factura.id_factura }}</p>
-      <p><strong>Cliente:</strong> {{ factura.usuario.nombre }}</p>
-      <p><strong>Fecha:</strong> {{ factura.creado_en.strftime("%d/%m/%Y %H:%M") }}</p>
+      <div class="factura-info mb-4">
+        <p><strong>Número de Factura:</strong> {{ factura.id_factura }}</p>
+        <p><strong>Cliente:</strong> {{ factura.usuario.nombre }}</p>
+        <p><strong>Fecha:</strong> {{ factura.creado_en.strftime("%d/%m/%Y %H:%M") }}</p>
+      </div>
 
-      <table class="table table-bordered mt-4">
+      <table class="table table-bordered mt-4 align-middle text-center">
         <thead class="table-light">
-          <tr class="text-center">
+          <tr>
             <th>Producto</th>
             <th>Talla</th>
             <th>Color</th>
@@ -25,12 +27,12 @@
         <tbody>
           {% for item in factura.items %}
           <tr>
-            <td>{{ item.nombre_producto }}</td>
-            <td class="text-center">{{ item.talla or '-' }}</td>
-            <td class="text-center">{{ item.color or '-' }}</td>
-            <td class="text-center">{{ item.cantidad }}</td>
-            <td class="text-center">${{ "%.2f"|format(item.precio_unitario) }}</td>
-            <td class="text-center">${{ "%.2f"|format(item.subtotal) }}</td>
+            <td class="text-start">{{ item.nombre_producto }}</td>
+            <td>{{ item.talla or '-' }}</td>
+            <td>{{ item.color or '-' }}</td>
+            <td>{{ item.cantidad }}</td>
+            <td>${{ "%.2f"|format(item.precio_unitario) }}</td>
+            <td>${{ "%.2f"|format(item.subtotal) }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -39,15 +41,24 @@
       <div class="d-flex justify-content-end mt-3">
         <h4>Total: <span class="text-success">${{ "%.2f"|format(factura.total) }}</span></h4>
       </div>
+
       <div class="text-center mt-4">
-        <a href="{{ url_for('catalog') }}" class="btn btn-primary">Seguir Comprando</a>
-        <a href="{{ url_for('index') }}" class="btn btn-secondary">Volver al inicio</a>
-        <!-- Botón para descargar PDF -->
-        <a href="{{ url_for('factura_pdf', factura_id=factura.id_factura) }}" class="btn btn-success ms-2" target="_blank">
-          📄 Descargar comprobante (PDF)
+        <a href="{{ url_for('catalog') }}" class="btn btn-primary">🛍️ Seguir Comprando</a>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">🏠 Volver al inicio</a>
+        <a href="{{ url_for('factura_pdf', factura_id=factura.id_factura) }}" 
+           class="btn btn-success ms-2" target="_blank">
+           📄 Descargar comprobante (PDF)
         </a>
       </div>
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/factura.css') }}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/factura.js') }}"></script>
 {% endblock %}

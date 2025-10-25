@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_user, logout_user
 from models import Usuario, Rol, db
 from decorators import role_required, find_or_create_role
-from app import SHOPPING_CARTS
+from globals import SHOPPING_CARTS
 
 usuarios_bp = Blueprint('usuarios', __name__)
 

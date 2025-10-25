@@ -1,0 +1,25 @@
+.socials-section { margin: 2.5rem 0; text-align: center; }
+.socials-row { display: inline-flex; gap: 0.7rem; align-items: center; }
+.social-btn {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: white;
+  text-decoration: none;
+  background: #333;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.social-btn:hover { transform: translateY(-4px); box-shadow: 0 10px 22px rgba(0,0,0,0.18); }
+.social-btn svg { width: 28px; height: 28px; fill: white; }
+.social-btn.x { background: black; }
+.social-btn.instagram { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
+.social-btn.facebook { background: #1877f2; }
+.social-btn.tiktok { background: black; }
+@media (max-width: 480px) {
+  .social-btn { width:44px; height:44px; }
+  .social-btn svg { width:22px; height:22px; }
+}

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Inicio{% endblock %}
-{% block content %}
 
+{% block content %}
 <!-- Carrusel -->
 <div id="mainCarousel" class="carousel slide mb-5" data-bs-ride="carousel">
   <div class="carousel-indicators">
@@ -30,47 +30,15 @@
   </button>
 </div>
 
-<!-- ===== Redes sociales con íconos oficiales ===== -->
-<style>
-  .socials-section { margin: 2.5rem 0; text-align: center; }
-  .socials-row { display: inline-flex; gap: 0.7rem; align-items: center; }
-  .social-btn {
-    width: 52px;
-    height: 52px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    color: white;
-    text-decoration: none;
-    background: #333;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-    transition: transform .12s ease, box-shadow .12s ease;
-  }
-  .social-btn:hover { transform: translateY(-4px); box-shadow: 0 10px 22px rgba(0,0,0,0.18); }
-  .social-btn svg { width: 28px; height: 28px; fill: white; }
-  .social-btn.x { background: black; }
-  .social-btn.instagram { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
-  .social-btn.facebook { background: #1877f2; }
-  .social-btn.tiktok { background: black; }
-  @media (max-width: 480px) {
-    .social-btn { width:44px; height:44px; }
-    .social-btn svg { width:22px; height:22px; }
-  }
-</style>
-
 <section class="socials-section">
   <h3>Síguenos</h3>
   <div class="socials-row">
-
-    <!-- X (Twitter) -->
     <a class="social-btn x" href="https://x.com/tuusuario" target="_blank" rel="noopener noreferrer">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1227">
         <path d="M714.163 519.284L1160.89 0H1055.01L667.137 450.887L362.926 0H0l466.229 681.473L0 1226.55h105.876l408.288-477.158L857.074 1226.55H1200L714.163 519.284z"/>
       </svg>
     </a>
 
-    <!-- Instagram -->
     <a class="social-btn instagram" href="https://instagram.com/tuusuario" target="_blank" rel="noopener noreferrer">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
         <path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9 
@@ -90,7 +58,6 @@
       </svg>
     </a>
 
-    <!-- Facebook -->
     <a class="social-btn facebook" href="https://facebook.com/tuusuario" target="_blank" rel="noopener noreferrer">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512">
         <path d="M279.14 288l14.22-92.66h-88.91V134.13c0-25.35 
@@ -100,14 +67,19 @@
       </svg>
     </a>
 
-    <!-- TikTok -->
     <a class="social-btn tiktok" href="https://tiktok.com/@tuusuario" target="_blank" rel="noopener noreferrer">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
         <path d="M448,209.91a210.06,210.06,0,0,1-122.77-39.27v171.9c0,84.64-68.7,153.45-153.45,153.45S18.33,426.18,18.33,341.54,87,188.09,171.78,188.09a152.4,152.4,0,0,1,41.09,5.65V279a69.78,69.78,0,1,0,50.92,67.11V0h61.37A149.85,149.85,0,0,0,448,149.84Z"/>
       </svg>
     </a>
-
   </div>
 </section>
+{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/index.js') }}"></script>
 {% endblock %}

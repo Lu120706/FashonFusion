@@ -1,62 +1,65 @@
 {% extends "base.html" %}
-
 {% block title %}Registro - Marca Ropa{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/register.css') }}">
+
 <div class="row justify-content-center">
-    <div class="col-md-6 col-lg-4">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h2 class="card-title text-center mb-4">Crear Cuenta</h2>
-                <form method="POST" action="{{ url_for('register') }}">
-                    
-                    <!-- Usuario -->
-                    <div class="mb-3">
-                        <label for="id_usuario" class="form-label">Numero de documento</label>
-                        <input type="text" class="form-control" id="id_usuario" name="id_usuario" required>
-                    </div>
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm register-card">
+      <div class="card-body">
+        <h2 class="card-title text-center mb-4">Crear Cuenta</h2>
+        <form method="POST" action="{{ url_for('register') }}" id="registerForm">
+          
+          <!-- Usuario -->
+          <div class="mb-3">
+            <label for="id_usuario" class="form-label">Número de documento</label>
+            <input type="text" class="form-control" id="id_usuario" name="id_usuario" required>
+          </div>
 
-                    <!-- Nombre -->
-                    <div class="mb-3">
-                        <label for="nombre" class="form-label">Nombre Completo</label>
-                        <input type="text" class="form-control" id="nombre" name="nombre" required>
-                    </div>
+          <!-- Nombre -->
+          <div class="mb-3">
+            <label for="nombre" class="form-label">Nombre Completo</label>
+            <input type="text" class="form-control" id="nombre" name="nombre" required>
+          </div>
 
-                    <!-- Correo -->
-                    <div class="mb-3">
-                        <label for="correo" class="form-label">Correo Electrónico</label>
-                        <input type="email" class="form-control" id="correo" name="correo" required>
-                    </div>
+          <!-- Correo -->
+          <div class="mb-3">
+            <label for="correo" class="form-label">Correo Electrónico</label>
+            <input type="email" class="form-control" id="correo" name="correo" required>
+          </div>
 
-                    <!-- Dirección -->
-                    <div class="mb-3">
-                        <label for="direccion" class="form-label">Dirección</label>
-                        <input type="text" class="form-control" id="direccion" name="direccion" required>
-                    </div>
+          <!-- Dirección -->
+          <div class="mb-3">
+            <label for="direccion" class="form-label">Dirección</label>
+            <input type="text" class="form-control" id="direccion" name="direccion" required>
+          </div>
 
-                    <!-- Contraseña -->
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Contraseña</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                    </div>
+          <!-- Contraseña -->
+          <div class="mb-3">
+            <label for="password" class="form-label">Contraseña</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+          </div>
 
-                    <!-- Confirmar Contraseña -->
-                    <div class="mb-3">
-                        <label for="confirm_password" class="form-label">Confirmar Contraseña</label>
-                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
-                    </div>
+          <!-- Confirmar Contraseña -->
+          <div class="mb-3">
+            <label for="confirm_password" class="form-label">Confirmar Contraseña</label>
+            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+          </div>
 
-                    <!-- Botón -->
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">Registrarse</button>
-                    </div>
-                </form>
+          <!-- Botón -->
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary">Registrarse</button>
+          </div>
+        </form>
 
-                <p class="text-center mt-3">
-                    ¿Ya tienes cuenta? <a href="{{ url_for('login') }}">Inicia sesión aquí</a>
-                </p>
-            </div>
-        </div>
+        <p class="text-center mt-3">
+          ¿Ya tienes cuenta? <a href="{{ url_for('login') }}">Inicia sesión aquí</a>
+        </p>
+      </div>
     </div>
+  </div>
 </div>
+
+<script src="{{ url_for('static', filename='js/register.js') }}"></script>
 {% endblock %}

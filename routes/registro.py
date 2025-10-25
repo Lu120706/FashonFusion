@@ -1,6 +1,6 @@
 # routes/registro.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from app import db
+from extensions import db
 from models import Usuario
 from decorators import find_or_create_role  # si lo tienes en otro archivo, ajusta la ruta
 

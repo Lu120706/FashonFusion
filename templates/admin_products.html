@@ -1,8 +1,13 @@
 {% extends "base.html" %}
+{% block title %}Gestión de Productos{% endblock %}
+
 {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_products.css') }}">
+
 <div class="container my-5">
   <h2 class="mb-4">Gestión de Productos</h2>
   <a href="{{ url_for('admin_create_product') }}" class="btn btn-success mb-3">➕ Nuevo Producto</a>
+
   <table class="table table-bordered table-striped">
     <thead class="table-dark">
       <tr>
@@ -29,7 +34,7 @@
         <td>
           <a href="{{ url_for('admin_edit_product', id_producto=p.id_producto) }}" class="btn btn-primary btn-sm">Editar</a>
           <form action="{{ url_for('admin_delete_product', id_producto=p.id_producto) }}" method="POST" style="display:inline;">
-            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar este producto?')">Eliminar</button>
+            <button type="submit" class="btn btn-danger btn-sm btn-delete-product">Eliminar</button>
           </form>
         </td>
       </tr>
@@ -37,4 +42,6 @@
     </tbody>
   </table>
 </div>
+
+<script src="{{ url_for('static', filename='js/admin_products.js') }}"></script>
 {% endblock %}
