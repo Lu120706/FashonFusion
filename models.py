@@ -1,6 +1,7 @@
 from extensions import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from flask_login import UserMixin
 
 class Rol(db.Model):
     __tablename__ = 'rol'
@@ -8,7 +9,7 @@ class Rol(db.Model):
     nombre = db.Column(db.String(25), nullable=False)
     fecha_registro = db.Column(db.DateTime, server_default=db.func.now())
 
-class Usuario(db.Model):
+class Usuario(db.Model, UserMixin):
     __tablename__ = 'usuarios'
     id_usuario = db.Column(db.String(15), primary_key=True)
     nombre = db.Column(db.String(150), nullable=False)

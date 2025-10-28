@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ action }} usuario{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_users_form.css') }}">
 <h2>{{ action }} usuario</h2>
 
-<form method="POST" id="userForm">
+<form method="POST">
   <div class="mb-3">
     <label class="form-label">ID usuario</label>
     {% if user %}
@@ -30,9 +29,7 @@
   </div>
 
   <div class="mb-3">
-    <label class="form-label">
-      Contraseña {% if user %}<small class="text-muted">(dejar vacío para no cambiar)</small>{% endif %}
-    </label>
+    <label class="form-label">Contraseña {% if user %}<small class="text-muted">(dejar vacío para no cambiar)</small>{% endif %}</label>
     <input class="form-control" type="password" name="password" {% if not user %}required{% endif %}>
   </div>
 
@@ -52,6 +49,4 @@
   <button class="btn btn-primary">{{ action }}</button>
   <a class="btn btn-secondary" href="{{ url_for('admin_users') }}">Cancelar</a>
 </form>
-
-<script src="{{ url_for('static', filename='js/admin_users_form.js') }}"></script>
 {% endblock %}

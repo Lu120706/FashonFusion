@@ -1,12 +1,20 @@
 # routes/productos.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
+from flask import (
+    Blueprint, render_template, request, redirect, url_for, flash,
+    abort, current_app
+)
 from werkzeug.utils import secure_filename
-import datetime, os
+import datetime
+import os
 from extensions import db
 from models import Producto
-from decorators import role_required # si lo tienes en otro archivo, ajústalo
+from decorators import role_required  # asumes que este decorador existe y usa session
 
-productos_bp = Blueprint('productos', __name__)
+productos_bp = Blueprint("productos", __name__, url_prefix="/productos")
+
+# -----------------------
+# RUTAS ADMIN (CRUD)
+# -----------------------
 
 @productos_bp.route('/admin/products')
 @role_required('admin')
@@ -19,25 +27,35 @@ def admin_products():
 @role_required('admin')
 def admin_create_product():
     if request.method == 'POST':
-        nombre = request.form['nombre']
-        descripcion = request.form['descripcion']
-        categoria = request.form['categoria']
-        talla = request.form['talla']
-        color = request.form['color']
-        precio = float(request.form['precio_producto'])
-        disponibilidad = request.form['disponibilidad']
-        stock = int(request.form['stock'])
-        foto_filename = None
+        # recoger campos (asegúrate de que tus inputs tengan estos name en el formulario)
+        nombre = request.form.get('nombre', '').strip()
+        descripcion = request.form.get('descripcion', '').strip()
+        categoria = request.form.get('categoria', '').strip()
+        talla = request.form.get('talla', '').strip()
+        color = request.form.get('color', '').strip()
+        # asegurar valores por defecto y validaciones mínimas
+        try:
+            precio = float(request.form.get('precio_producto', 0))
+        except ValueError:
+            precio = 0.0
+        disponibilidad = request.form.get('disponibilidad', 'SI')
+        try:
+            stock = int(request.form.get('stock', 0))
+        except ValueError:
+            stock = 0
 
+        # Manejo seguro de la foto: guardamos en la carpeta estática del app
+        foto_filename = None
         if 'foto_producto' in request.files:
             f = request.files['foto_producto']
             if f and f.filename:
                 filename = secure_filename(f.filename)
                 ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
                 filename = f"{ts}_{filename}"
-                upload_path = os.path.join('static', 'uploads', 'productos')
+                upload_path = os.path.join(current_app.static_folder, 'uploads', 'productos')
                 os.makedirs(upload_path, exist_ok=True)
                 f.save(os.path.join(upload_path, filename))
+                # Guardamos la ruta relativa dentro de static (ej: uploads/productos/xxx.jpg)
                 foto_filename = os.path.join('uploads', 'productos', filename)
 
         nuevo = Producto(
@@ -57,9 +75,11 @@ def admin_create_product():
             flash('✅ Producto creado con éxito', 'success')
         except Exception as e:
             db.session.rollback()
-            flash('❌ Error al crear producto', 'danger')
+            current_app.logger.exception("Error creando producto")
+            flash(f'❌ Error al crear producto: {e}', 'danger')
         return redirect(url_for('productos.admin_products'))
 
+    # GET: formulario
     return render_template('product_form.html', action='Crear', producto=None)
 
 
@@ -67,15 +87,22 @@ def admin_create_product():
 @role_required('admin')
 def admin_edit_product(id_producto):
     producto = Producto.query.get_or_404(id_producto)
+
     if request.method == 'POST':
-        producto.nombre = request.form['nombre']
-        producto.descripcion = request.form['descripcion']
-        producto.categoria = request.form['categoria']
-        producto.talla = request.form['talla']
-        producto.color = request.form['color']
-        producto.precio_producto = float(request.form['precio_producto'])
-        producto.disponibilidad = request.form['disponibilidad']
-        producto.stock = int(request.form['stock'])
+        producto.nombre = request.form.get('nombre', producto.nombre).strip()
+        producto.descripcion = request.form.get('descripcion', producto.descripcion).strip()
+        producto.categoria = request.form.get('categoria', producto.categoria).strip()
+        producto.talla = request.form.get('talla', producto.talla).strip()
+        producto.color = request.form.get('color', producto.color).strip()
+        try:
+            producto.precio_producto = float(request.form.get('precio_producto', producto.precio_producto))
+        except Exception:
+            pass
+        producto.disponibilidad = request.form.get('disponibilidad', producto.disponibilidad)
+        try:
+            producto.stock = int(request.form.get('stock', producto.stock))
+        except Exception:
+            pass
 
         if 'foto_producto' in request.files:
             f = request.files['foto_producto']
@@ -83,7 +110,7 @@ def admin_edit_product(id_producto):
                 filename = secure_filename(f.filename)
                 ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
                 filename = f"{ts}_{filename}"
-                upload_path = os.path.join('static', 'uploads', 'productos')
+                upload_path = os.path.join(current_app.static_folder, 'uploads', 'productos')
                 os.makedirs(upload_path, exist_ok=True)
                 f.save(os.path.join(upload_path, filename))
                 producto.foto_producto = os.path.join('uploads', 'productos', filename)
@@ -93,7 +120,8 @@ def admin_edit_product(id_producto):
             flash('✅ Producto actualizado', 'success')
         except Exception as e:
             db.session.rollback()
-            flash(f'❌ Error: {e}', 'danger')
+            current_app.logger.exception("Error actualizando producto")
+            flash(f'❌ Error actualizando producto: {e}', 'danger')
         return redirect(url_for('productos.admin_products'))
 
     return render_template('product_form.html', action='Editar', producto=producto)
@@ -109,11 +137,20 @@ def admin_delete_product(id_producto):
         flash('✅ Producto eliminado', 'success')
     except Exception as e:
         db.session.rollback()
+        current_app.logger.exception("Error eliminando producto")
         flash(f'❌ Error eliminando: {e}', 'danger')
     return redirect(url_for('productos.admin_products'))
 
+# Catálogo (lista)
+@productos_bp.route("/")
+def catalogo():
+    productos = Producto.query.all()
+    return render_template("catalogo.html", productos=productos)
 
-@productos_bp.route('/product/<int:pid>')
-def product(pid):
-    producto = Producto.query.get_or_404(pid)
-    return render_template('product.html', product=producto)
+# Detalle de producto (uno solo)
+@productos_bp.route("/<int:pid>")
+def detalle(pid):
+    product = Producto.query.get(pid)
+    if not product:
+        abort(404)
+    return render_template("productos.html", product=product)

@@ -1,9 +1,8 @@
+{# templates/admin_rol.html #}
 {% extends "base.html" %}
 {% block title %}Gestión de Roles{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_rol.css') }}">
-
 <div class="container py-4">
   <div class="card shadow-sm">
     <div class="card-body">
@@ -24,6 +23,7 @@
 
       <!-- Formulario para agregar rol -->
       <form action="{{ url_for('crear_rol') }}" method="POST" class="mb-4">
+        {# Si usas Flask-WTF, inserta el CSRF token aquí: {{ form.csrf_token }} #}
         <div class="row g-2">
           <div class="col-md-3">
             <label for="id_rol" class="form-label">ID Rol</label>
@@ -60,6 +60,7 @@
                 <td class="align-middle">{{ rol.id_rol }}</td>
                 <td class="align-middle">{{ rol.nombre }}</td>
                 <td class="align-middle">
+                  {# Manejo seguro por si fecha_registro es None #}
                   {% if rol.fecha_registro %}
                     {{ rol.fecha_registro.strftime("%Y-%m-%d %H:%M") }}
                   {% else %}
@@ -68,6 +69,8 @@
                 </td>
                 <td class="align-middle">
                   <a href="{{ url_for('editar_rol', id=rol.id_rol) }}" class="btn btn-sm btn-warning me-1">Editar</a>
+
+                  <!-- Botón que abre la modal; usamos data-action para inyectar URL -->
                   <button
                     type="button"
                     class="btn btn-sm btn-danger btn-eliminar"
@@ -92,7 +95,7 @@
   </div>
 </div>
 
-<!-- Modal de confirmación -->
+<!-- Modal único de confirmación -->
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -106,6 +109,7 @@
       </div>
       <div class="modal-footer">
         <form id="delete-form" method="POST" action="">
+          {# Si usas CSRF, coloca el token aquí: <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"> #}
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn btn-danger">Sí, eliminar</button>
         </form>
@@ -114,5 +118,28 @@
   </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/admin_rol.js') }}"></script>
+<!-- Script para rellenar la modal y asignar action del form desde data-action -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modalRoleName = document.getElementById('modal-role-name');
+  const modalRoleId = document.getElementById('modal-role-id');
+  const deleteForm = document.getElementById('delete-form');
+
+  document.querySelectorAll('.btn-eliminar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.getAttribute('data-action');
+      const nombre = btn.getAttribute('data-nombre');
+      const id = btn.getAttribute('data-id');
+
+      // Rellenar texto en la modal
+      modalRoleName.textContent = nombre;
+      modalRoleId.textContent = id;
+
+      // Asignar action del formulario de eliminación
+      deleteForm.action = action;
+    });
+  });
+});
+</script>
 {% endblock %}
+{# templates/base.html #}

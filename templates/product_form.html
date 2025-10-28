@@ -1,12 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{{ action }} Producto{% endblock %}
-
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/product_form.css') }}">
-
 <div class="container my-5">
   <h2 class="mb-4">{{ action }} Producto</h2>
-  <form action="" method="POST" enctype="multipart/form-data" class="p-4 shadow rounded bg-light product-form">
+  <form action="" method="POST" enctype="multipart/form-data" class="p-4 shadow rounded bg-light">
     <div class="mb-3">
       <label for="nombre" class="form-label">Nombre</label>
       <input type="text" class="form-control" id="nombre" name="nombre" value="{{ producto.nombre if producto else '' }}" required>
@@ -62,6 +58,4 @@
     <button type="submit" class="btn btn-primary w-100">{{ action }}</button>
   </form>
 </div>
-
-<script src="{{ url_for('static', filename='js/product_form.js') }}"></script>
 {% endblock %}
