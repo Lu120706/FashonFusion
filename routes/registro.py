@@ -1,8 +1,9 @@
 # routes/registro.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db
-from models import Usuario
-from decorators import find_or_create_role  # si lo tienes en otro archivo, ajusta la ruta
+from models import Usuario, Rol  # ✅ Importamos Rol también
+from decorators import find_or_create_role  # asegúrate que esté bien la ruta
+from flask_login import login_user
 
 registro_bp = Blueprint('registro', __name__)
 
@@ -16,6 +17,7 @@ def register():
         confirm = request.form['confirm_password']
         direccion = request.form.get('direccion', '').strip()
 
+        # Validaciones básicas
         if password != confirm:
             flash('⚠️ Las contraseñas no coinciden', 'danger')
             return render_template('register.html')
@@ -28,31 +30,48 @@ def register():
             flash('⚠️ El correo ya está registrado', 'danger')
             return render_template('register.html')
 
-        # Asegurar que exista el rol 'user'
-        rol_user = find_or_create_role('user')
+        # ✅ Crear o buscar el rol 'user'
+        rol_user = find_or_create_role(db,Rol, 'user')
         if not rol_user:
             flash('❌ Error creando rol de usuario', 'danger')
             return render_template('register.html')
 
-        direccion_db = direccion if direccion is not None else ''
-
-        u = Usuario(
+        # Crear usuario
+        direccion_db = direccion if direccion else ''
+        nuevo_usuario = Usuario(
             id_usuario=id_usuario,
             nombre=nombre,
             correo=correo,
             direccion=direccion_db,
             id_rol=rol_user.id_rol
         )
-        u.set_password(password)
+        nuevo_usuario.set_password(password)
 
-        db.session.add(u)
+        db.session.add(nuevo_usuario)
         try:
             db.session.commit()
             flash('✅ Registro exitoso. Ya puedes iniciar sesión.', 'success')
-            return redirect(url_for('login.login'))  # 👈 importante: cambiará cuando login tenga su propio blueprint
+            return redirect(url_for('registro.login'))  # Correcto dentro del blueprint
         except Exception as e:
             db.session.rollback()
             flash(f'❌ Error al guardar el usuario: {e}', 'danger')
             return render_template('register.html')
 
     return render_template('register.html')
+
+
+@registro_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        correo = request.form['correo']
+        password = request.form['password']
+
+        user = Usuario.query.filter_by(correo=correo).first()
+        if user and user.check_password(password):
+            login_user(user)
+            flash('✅ Inicio de sesión exitoso', 'success')
+            return redirect(url_for('home.index'))  # Ajusta según tu blueprint de home
+        else:
+            flash('❌ Credenciales inválidas', 'danger')
+
+    return render_template('login.html')

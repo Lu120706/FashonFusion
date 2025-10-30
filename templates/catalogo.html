@@ -8,26 +8,29 @@
     {% for p in products %}
     <div class="col-md-3">
       <div class="card h-100 shadow-sm product-card">
+
         <!-- Imagen clickeable para ver detalle -->
-        <a href="{{ url_for('product', pid=p.id_producto) }}">
+        <a href="{{ url_for('productos.detalle', pid=p.id_producto) }}">
           {% if p.foto_producto %}
-            <img src="data:image/jpeg;base64,{{ p.foto_producto|b64encode }}" 
-                 class="card-img-top" alt="{{ p.nombre }}" 
-                 style="height:250px;object-fit:cover">
+          <img src="{{ url_for('static', filename=p.foto_producto) }}"  
+               class="card-img-top" alt="{{ p.nombre }}" 
+               style="height:250px;object-fit:cover">
           {% else %}
-            <img src="/static/no-image.png" class="card-img-top" alt="Sin imagen" 
-                 style="height:250px;object-fit:cover">
+          <img src="{{ url_for('static', filename='no-image.png') }}" 
+               class="card-img-top" alt="Sin imagen" 
+               style="height:250px;object-fit:cover">
           {% endif %}
         </a>
+
         <div class="card-body d-flex flex-column">
           <h5 class="card-title text-center">{{ p.nombre }}</h5>
           <p class="card-text text-muted small">{{ p.descripcion }}</p>
           <p class="price text-center fw-bold">
             ${{ "%.2f"|format(p.precio_producto) }}
           </p>
-          
+
           <!-- Formulario para añadir al carrito -->
-          <form action="{{ url_for('add_to_cart', product_id=p.id_producto) }}" method="POST">
+          <form action="{{ url_for('carrito.add_to_cart', product_id=p.id_producto) }}" method="POST">
             <div class="d-flex justify-content-center gap-2 mb-2">
               <select name="talla" class="form-select form-select-sm" required>
                 <option value="">Talla</option>

@@ -48,8 +48,8 @@
                 </li>
 
                 {% if current_user.is_authenticated %}
-                    {% set username = getattr(current_user, 'nombre', current_user.get_id()) %}
-                    {% set user_role = getattr(current_user, 'id_rol', None) %}
+                    {% set username = current_user.nombre if current_user.nombre is defined else current_user.get_id() %}
+                    {% set user_role = current_user.id_rol if current_user.id_rol is defined else None %}
 
                     {% if user_role in ('a','A','admin') %}
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('usuarios.admin_users') }}">Usuarios</a></li>

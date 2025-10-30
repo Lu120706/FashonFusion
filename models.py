@@ -5,9 +5,10 @@ from flask_login import UserMixin
 
 class Rol(db.Model):
     __tablename__ = 'rol'
-    id_rol = db.Column(db.String(1), primary_key=True)
-    nombre = db.Column(db.String(25), nullable=False)
+    id_rol = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    nombre = db.Column(db.String(25), nullable=False, unique=True)
     fecha_registro = db.Column(db.DateTime, server_default=db.func.now())
+
 
 class Usuario(db.Model, UserMixin):
     __tablename__ = 'usuarios'
@@ -29,6 +30,7 @@ class Usuario(db.Model, UserMixin):
     def get_id(self):
         return str(self.id_usuario)
 
+
 class Producto(db.Model):
     __tablename__ = 'productos'
     id_producto = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -40,7 +42,9 @@ class Producto(db.Model):
     precio_producto = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     disponibilidad = db.Column(db.Enum('SI', 'NO'), nullable=False, default='SI')
     stock = db.Column(db.Integer, nullable=False, default=0)
+    foto_producto = db.Column(db.String(255), nullable=True)
     creado_en = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class Factura(db.Model):
     __tablename__ = 'factura'
@@ -50,6 +54,7 @@ class Factura(db.Model):
     estado = db.Column(db.Enum('pendiente', 'pagada', 'enviada', 'cancelada'), default='pendiente')
     total = db.Column(db.Numeric(10, 2), nullable=False)
     creado_en = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class FacturaItem(db.Model):
     __tablename__ = 'factura_items'
@@ -69,5 +74,4 @@ class FacturaItem(db.Model):
     factura = db.relationship('Factura', backref=db.backref('items', lazy=True))
 
     def calcular_subtotal(self):
-        """Calcula el subtotal automáticamente."""
         self.subtotal = self.cantidad * self.precio_unitario

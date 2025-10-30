@@ -1,4 +1,3 @@
-# routes/productos.py
 from flask import (
     Blueprint, render_template, request, redirect, url_for, flash,
     abort, current_app
@@ -9,6 +8,7 @@ import os
 from extensions import db
 from models import Producto
 from decorators import role_required  # asumes que este decorador existe y usa session
+import base64  # 👈 añadido para decodificar imágenes en base64 si es necesario
 
 productos_bp = Blueprint("productos", __name__, url_prefix="/productos")
 
@@ -27,13 +27,11 @@ def admin_products():
 @role_required('admin')
 def admin_create_product():
     if request.method == 'POST':
-        # recoger campos (asegúrate de que tus inputs tengan estos name en el formulario)
         nombre = request.form.get('nombre', '').strip()
         descripcion = request.form.get('descripcion', '').strip()
         categoria = request.form.get('categoria', '').strip()
         talla = request.form.get('talla', '').strip()
         color = request.form.get('color', '').strip()
-        # asegurar valores por defecto y validaciones mínimas
         try:
             precio = float(request.form.get('precio_producto', 0))
         except ValueError:
@@ -44,7 +42,7 @@ def admin_create_product():
         except ValueError:
             stock = 0
 
-        # Manejo seguro de la foto: guardamos en la carpeta estática del app
+        # Manejo de foto
         foto_filename = None
         if 'foto_producto' in request.files:
             f = request.files['foto_producto']
@@ -55,7 +53,6 @@ def admin_create_product():
                 upload_path = os.path.join(current_app.static_folder, 'uploads', 'productos')
                 os.makedirs(upload_path, exist_ok=True)
                 f.save(os.path.join(upload_path, filename))
-                # Guardamos la ruta relativa dentro de static (ej: uploads/productos/xxx.jpg)
                 foto_filename = os.path.join('uploads', 'productos', filename)
 
         nuevo = Producto(
@@ -79,7 +76,6 @@ def admin_create_product():
             flash(f'❌ Error al crear producto: {e}', 'danger')
         return redirect(url_for('productos.admin_products'))
 
-    # GET: formulario
     return render_template('product_form.html', action='Crear', producto=None)
 
 
@@ -141,13 +137,30 @@ def admin_delete_product(id_producto):
         flash(f'❌ Error eliminando: {e}', 'danger')
     return redirect(url_for('productos.admin_products'))
 
-# Catálogo (lista)
+
+# -----------------------
+# CATÁLOGO (CLIENTE)
+# -----------------------
+
 @productos_bp.route("/")
 def catalogo():
     productos = Producto.query.all()
-    return render_template("catalogo.html", productos=productos)
 
-# Detalle de producto (uno solo)
+    for p in productos:
+        if p.foto_producto:
+            # Si viene como bytes, convertir a base64
+            if isinstance(p.foto_producto, bytes):
+                p.foto_producto = "data:image/jpeg;base64," + base64.b64encode(p.foto_producto).decode("utf-8")
+            # Si es string y no comienza con uploads o data:image
+            elif isinstance(p.foto_producto, str):
+                if not (p.foto_producto.startswith("uploads/") or p.foto_producto.startswith("data:image")):
+                    p.foto_producto = os.path.join("uploads", "productos", p.foto_producto)
+        else:
+            p.foto_producto = "no-image.png"
+
+    return render_template("catalogo.html", products=productos)
+
+
 @productos_bp.route("/<int:pid>")
 def detalle(pid):
     product = Producto.query.get(pid)
