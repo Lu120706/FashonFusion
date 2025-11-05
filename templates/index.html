@@ -14,8 +14,8 @@
       <div class="carousel-item {% if loop.index0 == 0 %}active{% endif %}">
         <img src="{{ img }}" class="d-block w-100" style="height:420px;object-fit:cover" alt="Slide {{ loop.index }}">
         <div class="carousel-caption d-none d-md-block">
-          <h5>Marca Ropa</h5>
-          <p>Encuentra lo mejor en estilo urbano.</p>
+          <h5>Fashion Fusion</h5>
+          <p>El poder de la moda urbana, diseñado para ti.</p>
         </div>
       </div>
     {% endfor %}
@@ -30,8 +30,59 @@
   </button>
 </div>
 
-<!-- ===== Redes sociales con íconos oficiales ===== -->
+<!-- ===== Sección de Misión y Visión ===== -->
+<section class="mision-vision-section text-white py-5">
+  <div class="overlay"></div>
+  <div class="container position-relative">
+    <div class="row align-items-center text-center text-md-start">
+      <div class="col-md-6 mb-4 mb-md-0">
+        <h2 class="fw-bold text-uppercase mb-3">Nuestra Misión</h2>
+        <p class="fs-5">
+          En <strong>Fashion Fusion</strong>, nuestra misión es redefinir la moda urbana como una forma de expresión auténtica y consciente. 
+          Creamos prendas que fusionan el arte callejero con la innovación textil, ofreciendo calidad, estilo y sostenibilidad 
+          en cada diseño. Queremos que cada persona vista con confianza y refleje su verdadera identidad.
+        </p>
+      </div>
+      <div class="col-md-6">
+        <h2 class="fw-bold text-uppercase mb-3">Nuestra Visión</h2>
+        <p class="fs-5">
+          Ser la marca líder en moda urbana contemporánea en Latinoamérica, reconocida por su creatividad, compromiso con el medio ambiente 
+          y conexión con las nuevas generaciones. En <strong>Fashion Fusion</strong> soñamos con un futuro donde la moda sea inclusiva, 
+          responsable y una voz de cambio positivo.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Estilos personalizados ===== -->
 <style>
+  /* Fondo Misión y Visión */
+  .mision-vision-section {
+    position: relative;
+    background-image: url("https://images.unsplash.com/photo-1503342394128-c104d54dba01?auto=format&fit=crop&w=1920&q=80");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+  }
+
+  .mision-vision-section .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .mision-vision-section h2 {
+    color: #fff;
+    letter-spacing: 1px;
+  }
+
+  .mision-vision-section p {
+    color: #f1f1f1;
+    line-height: 1.6;
+  }
+
+  /* Redes sociales */
   .socials-section { margin: 2.5rem 0; text-align: center; }
   .socials-row { display: inline-flex; gap: 0.7rem; align-items: center; }
   .social-btn {
@@ -59,19 +110,20 @@
   }
 </style>
 
+<!-- ===== Redes sociales con íconos oficiales ===== -->
 <section class="socials-section">
   <h3>Síguenos</h3>
   <div class="socials-row">
 
     <!-- X (Twitter) -->
-    <a class="social-btn x" href="https://x.com/tuusuario" target="_blank" rel="noopener noreferrer">
+    <a class="social-btn x" href="https://x.com/fashionfusion" target="_blank" rel="noopener noreferrer">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1227">
         <path d="M714.163 519.284L1160.89 0H1055.01L667.137 450.887L362.926 0H0l466.229 681.473L0 1226.55h105.876l408.288-477.158L857.074 1226.55H1200L714.163 519.284z"/>
       </svg>
     </a>
 
     <!-- Instagram -->
-    <a class="social-btn instagram" href="https://instagram.com/tuusuario" target="_blank" rel="noopener noreferrer">
+    <a class="social-btn instagram" href="https://instagram.com/fashionfusion" target="_blank" rel="noopener noreferrer">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
         <path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9 
         114.9-51.3 114.9-114.9S287.7 141 224.1 141zm0 
@@ -91,7 +143,7 @@
     </a>
 
     <!-- Facebook -->
-    <a class="social-btn facebook" href="https://facebook.com/tuusuario" target="_blank" rel="noopener noreferrer">
+    <a class="social-btn facebook" href="https://facebook.com/fashionfusion" target="_blank" rel="noopener noreferrer">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512">
         <path d="M279.14 288l14.22-92.66h-88.91V134.13c0-25.35 
         12.42-50.06 52.24-50.06h40.42V6.26S293.3 
@@ -101,7 +153,7 @@
     </a>
 
     <!-- TikTok -->
-    <a class="social-btn tiktok" href="https://tiktok.com/@tuusuario" target="_blank" rel="noopener noreferrer">
+    <a class="social-btn tiktok" href="https://tiktok.com/@fashionfusion" target="_blank" rel="noopener noreferrer">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
         <path d="M448,209.91a210.06,210.06,0,0,1-122.77-39.27v171.9c0,84.64-68.7,153.45-153.45,153.45S18.33,426.18,18.33,341.54,87,188.09,171.78,188.09a152.4,152.4,0,0,1,41.09,5.65V279a69.78,69.78,0,1,0,50.92,67.11V0h61.37A149.85,149.85,0,0,0,448,149.84Z"/>
       </svg>

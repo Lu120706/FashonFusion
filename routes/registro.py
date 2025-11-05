@@ -1,8 +1,8 @@
 # routes/registro.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from extensions import db
-from models import Usuario, Rol  # ✅ Importamos Rol también
-from decorators import find_or_create_role  # asegúrate que esté bien la ruta
+from models import Usuario, Rol
+from decorators import find_or_create_role
 from flask_login import login_user
 
 registro_bp = Blueprint('registro', __name__)
@@ -30,8 +30,8 @@ def register():
             flash('⚠️ El correo ya está registrado', 'danger')
             return render_template('register.html')
 
-        # ✅ Crear o buscar el rol 'user'
-        rol_user = find_or_create_role(db,Rol, 'user')
+        # Crear o buscar rol 'user'
+        rol_user = find_or_create_role(db, Rol, 'user')
         if not rol_user:
             flash('❌ Error creando rol de usuario', 'danger')
             return render_template('register.html')
@@ -51,7 +51,7 @@ def register():
         try:
             db.session.commit()
             flash('✅ Registro exitoso. Ya puedes iniciar sesión.', 'success')
-            return redirect(url_for('registro.login'))  # Correcto dentro del blueprint
+            return redirect(url_for('registro.login'))  # correcto con tu blueprint
         except Exception as e:
             db.session.rollback()
             flash(f'❌ Error al guardar el usuario: {e}', 'danger')
@@ -70,7 +70,7 @@ def login():
         if user and user.check_password(password):
             login_user(user)
             flash('✅ Inicio de sesión exitoso', 'success')
-            return redirect(url_for('home.index'))  # Ajusta según tu blueprint de home
+            return redirect(url_for('home.index'))  # apunta a tu blueprint home
         else:
             flash('❌ Credenciales inválidas', 'danger')
 

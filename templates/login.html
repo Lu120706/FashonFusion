@@ -8,7 +8,7 @@
         <div class="card shadow-sm">
             <div class="card-body">
                 <h2 class="card-title text-center mb-4">Iniciar Sesión</h2>
-                <form method="POST">
+                <form method="POST" action="{{ url_for('registro.login') }}">
                     <div class="mb-3">
                         <label for="correo" class="form-label">Correo electrónico</label>
                         <input type="email" class="form-control" id="correo" name="correo" required>

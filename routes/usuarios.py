@@ -1,4 +1,3 @@
-# usuarios.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_user, logout_user
 from models import Usuario, Rol, db
@@ -47,14 +46,14 @@ def logout():
 # CRUD DE USUARIOS (solo admin)
 # -----------------------
 @usuarios_bp.route('/admin/users')
-@role_required('admin')
+@role_required('a', 'admin')  # ✅ cambio mínimo aquí
 def admin_users():
     users = Usuario.query.order_by(Usuario.creado_en.desc()).all()
     return render_template('admin_users.html', users=users)
 
 
 @usuarios_bp.route('/admin/users/new', methods=['GET', 'POST'])
-@role_required('admin')
+@role_required('a', 'admin')  # ✅ cambio mínimo aquí
 def admin_create_user():
     if request.method == 'POST':
         id_usuario = request.form['id_usuario'].strip()
@@ -94,7 +93,7 @@ def admin_create_user():
 
 
 @usuarios_bp.route('/admin/users/edit/<string:id_usuario>', methods=['GET', 'POST'])
-@role_required('admin')
+@role_required('a', 'admin')  # ✅ cambio mínimo aquí
 def admin_edit_user(id_usuario):
     user = Usuario.query.get_or_404(id_usuario)
 
@@ -141,7 +140,7 @@ def admin_edit_user(id_usuario):
 
 
 @usuarios_bp.route('/admin/users/delete/<string:id_usuario>', methods=['POST'])
-@role_required('admin')
+@role_required('a', 'admin')  # ✅ cambio mínimo aquí
 def admin_delete_user(id_usuario):
     if id_usuario == session.get('username'):
         flash('No puedes eliminarte a ti mismo', 'warning')
@@ -174,8 +173,8 @@ def create_default_data():
         return
 
     try:
-        rol_admin = find_or_create_role('admin')
-        rol_user = find_or_create_role('user')
+        rol_admin = find_or_create_role(db, Rol, 'admin')
+        rol_user = find_or_create_role(db, Rol, 'user')
     except Exception as e:
         print(f"Error creando roles por defecto: {e}")
         return

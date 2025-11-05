@@ -1,16 +1,23 @@
 from functools import wraps
 from flask import session, redirect, url_for, flash
 
-def role_required(role):
+def role_required(*roles):
+    """
+    Decorador que verifica si el rol del usuario en sesión
+    está dentro de los roles permitidos.
+    Ejemplo de uso:
+        @role_required('a', 'admin')
+    """
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
-            if 'role' not in session or session['role'] != role:
+            if 'role' not in session or session['role'] not in roles:
                 flash("Acceso no autorizado.", "danger")
-                return redirect(url_for('login'))
+                return redirect(url_for('registro.login'))
             return f(*args, **kwargs)
         return wrapped
     return decorator
+
 
 def find_or_create_role(db, Rol, nombre):
     """Busca un rol por nombre o lo crea si no existe."""

@@ -1,7 +1,7 @@
 import base64
 from decimal import Decimal
 from flask import Blueprint, request, session, flash, redirect, url_for, render_template
-from flask_login import login_required
+from flask_login import login_required, current_user
 from models import Producto
 
 carrito_bp = Blueprint('carrito', __name__)
@@ -160,8 +160,52 @@ def clear_cart():
 @carrito_bp.route('/cart/checkout', methods=['POST'])
 @login_required
 def cart_checkout():
-    """Simula el proceso de compra."""
+    """Procesa la compra, guarda la factura en la base de datos y redirige a la vista de factura."""
+    from models import Factura, FacturaItem, db  # Importamos aquí para evitar ciclos
+
+    cart = session.get('cart', {})
+    if not cart:
+        flash('Tu carrito está vacío.', 'warning')
+        return redirect(url_for('carrito.cart'))
+
+    # Obtener datos del usuario actual
+    usuario_id = getattr(current_user, 'id_usuario', None) or current_user.get_id()
+    direccion_envio = request.form.get('direccion_envio', '').strip()
+
+    # Calcular total de la factura
+    total = sum(float(item['precio']) * int(item['cantidad']) for item in cart.values())
+
+    # Crear la factura principal
+    factura = Factura(
+        id_usuario=str(usuario_id),
+        direccion_envio=direccion_envio,
+        total=total,
+        estado='pagada'  # o 'pendiente', según tu flujo
+    )
+    db.session.add(factura)
+    db.session.commit()  # Guarda para obtener el ID de factura
+
+    # Crear los items de la factura
+    for item in cart.values():
+        subtotal = float(item['precio']) * int(item['cantidad'])
+        factura_item = FacturaItem(
+            id_factura=factura.id_factura,
+            id_producto=item['id'],  # opcional, si quieres vincular al producto
+            nombre_producto=item['nombre'],
+            talla=item.get('talla', ''),
+            color=item.get('color', ''),
+            cantidad=item['cantidad'],
+            precio_unitario=item['precio'],
+            subtotal=subtotal
+        )
+        db.session.add(factura_item)
+
+    db.session.commit()
+
+    # Limpiar carrito
     session.pop('cart', None)
     session.modified = True
-    flash('Compra realizada con éxito', 'success')
-    return redirect(url_for('home.index'))
+
+    # Mensaje y redirección
+    flash('Compra realizada con éxito. Tu factura ha sido generada.', 'success')
+    return redirect(url_for('factura.invoice_detail', factura_id=factura.id_factura))
