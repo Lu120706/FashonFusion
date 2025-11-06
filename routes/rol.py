@@ -7,7 +7,7 @@ from decorators import role_required  # asegúrate que esté en tu proyecto
 rol_bp = Blueprint('rol', __name__)
 
 @rol_bp.route("/roles")
-@role_required('admin')
+@role_required('a')
 def listar_roles():
     roles = Rol.query.order_by(Rol.fecha_registro.desc()).all()
     return render_template("admin_rol.html", roles=roles)

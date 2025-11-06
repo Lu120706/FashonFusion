@@ -42,7 +42,7 @@ def forgot_password():
             return render_template('forgot_password.html')
 
         # Redirige al login (ajusta si tu login está en otro blueprint)
-        return redirect(url_for('auth.login'))
+        return redirect(url_for('registro.login'))
 
     return render_template('forgot_password.html')
 
