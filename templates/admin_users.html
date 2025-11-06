@@ -3,7 +3,7 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Usuarios</h2>
-  <a class="btn btn-success" href="{{ url_for('admin_create_user') }}">Crear usuario</a>
+  <a class="btn btn-success" href="{{ url_for('usuarios.admin_create_user') }}">Crear usuario</a>
 </div>
 
 <table class="table">
@@ -26,8 +26,8 @@
       <td>{{ u.id_rol }}</td>
       <td>{{ u.creado_en.strftime('%Y-%m-%d %H:%M') if u.creado_en else '' }}</td>
       <td>
-        <a class="btn btn-sm btn-primary" href="{{ url_for('admin_edit_user', id_usuario=u.id_usuario) }}">Editar</a>
-        <form style="display:inline" method="POST" action="{{ url_for('admin_delete_user', id_usuario=u.id_usuario) }}" onsubmit="return confirm('¿Eliminar usuario?');">
+        <a class="btn btn-sm btn-primary" href="{{ url_for('usuarios.admin_edit_user', id_usuario=u.id_usuario) }}">Editar</a>
+        <form style="display:inline" method="POST" action="{{ url_for('usuarios.admin_delete_user', id_usuario=u.id_usuario) }}" onsubmit="return confirm('¿Eliminar usuario?');">
           <button class="btn btn-sm btn-danger">Eliminar</button>
         </form>
       </td>

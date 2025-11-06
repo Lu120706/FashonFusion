@@ -1,9 +1,10 @@
 # routes/registro.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import db
 from models import Usuario, Rol
 from decorators import find_or_create_role
 from flask_login import login_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
 registro_bp = Blueprint('registro', __name__)
 
@@ -60,18 +61,22 @@ def register():
     return render_template('register.html')
 
 
+
 @registro_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        correo = request.form['correo']
-        password = request.form['password']
+        usuario = Usuario.query.filter_by(id_usuario=request.form['id_usuario']).first()
 
-        user = Usuario.query.filter_by(correo=correo).first()
-        if user and user.check_password(password):
-            login_user(user)
-            flash('✅ Inicio de sesión exitoso', 'success')
-            return redirect(url_for('home.index'))  # apunta a tu blueprint home
+        if usuario and check_password_hash(usuario.contrasena, request.form['contrasena']):
+            login_user(usuario)
+
+            # 🔥 IMPORTANTE: Guardar el rol en la sesión
+            session["role"] = usuario.id_rol 
+            session["user_id"] = usuario.id_usuario
+
+            flash("Inicio de sesión exitoso", "success")
+            return redirect(url_for('home.index'))  # o la ruta que uses para el inicio
         else:
-            flash('❌ Credenciales inválidas', 'danger')
+            flash("Usuario o contraseña incorrectos", "danger")
 
     return render_template('login.html')

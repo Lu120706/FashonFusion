@@ -22,7 +22,7 @@
       <h3 class="text-center mb-4"><i class="bi bi-people"></i> Gestión de Roles</h3>
 
       <!-- Formulario para agregar rol -->
-      <form action="{{ url_for('crear_rol') }}" method="POST" class="mb-4">
+      <form action="{{ url_for('rol.crear_rol') }}" method="POST" class="mb-4">
         {# Si usas Flask-WTF, inserta el CSRF token aquí: {{ form.csrf_token }} #}
         <div class="row g-2">
           <div class="col-md-3">
@@ -68,13 +68,13 @@
                   {% endif %}
                 </td>
                 <td class="align-middle">
-                  <a href="{{ url_for('editar_rol', id=rol.id_rol) }}" class="btn btn-sm btn-warning me-1">Editar</a>
+                  <a href="{{ url_for('rol.editar_rol', id=rol.id_rol) }}" class="btn btn-sm btn-warning me-1">Editar</a>
 
                   <!-- Botón que abre la modal; usamos data-action para inyectar URL -->
                   <button
                     type="button"
                     class="btn btn-sm btn-danger btn-eliminar"
-                    data-action="{{ url_for('eliminar_rol', id=rol.id_rol) }}"
+                    data-action="{{ url_for('rol.eliminar_rol', id=rol.id_rol) }}"
                     data-nombre="{{ rol.nombre }}"
                     data-id="{{ rol.id_rol }}"
                     data-bs-toggle="modal"

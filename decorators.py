@@ -1,16 +1,18 @@
 from functools import wraps
 from flask import session, redirect, url_for, flash
 
-def role_required(*roles):
+def role_required(required_role):
     def decorator(f):
         @wraps(f)
-        def wrapped(*args, **kwargs):
-            user_role = session.get("id_rol")  # <-- coincide con login()
-            if not user_role or user_role not in roles:
+        def wrapper(*args, **kwargs):
+            user_role = session.get("role")
+
+            if user_role != required_role:
                 flash("🚫 No tienes permisos para acceder a esta sección.", "danger")
-                return redirect(url_for("usuarios.login"))
+                return redirect(url_for("home.index"))  # Cambia si tu home es otra ruta
+
             return f(*args, **kwargs)
-        return wrapped
+        return wrapper
     return decorator
 
 def find_or_create_role(db, Rol, nombre):
