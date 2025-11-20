@@ -36,7 +36,7 @@ def add_to_cart(product_id):
 
     if not talla or not color:
         flash('Por favor selecciona talla y color antes de añadir al carrito.', 'warning')
-        return redirect(url_for('catalogo.catalogo'))  # <-- asegúrate de tener catalogo_bp registrado
+        return redirect(url_for('productos.catalogo'))
 
     cart = _get_cart()
     key = f"{product_id}:{talla}:{color}"
@@ -48,15 +48,6 @@ def add_to_cart(product_id):
     except Exception:
         precio_float = 0.0
 
-    # Obtener imagen en base64
-    imagen_src = '/static/no-image.png'
-    try:
-        foto = getattr(producto, 'foto_producto', None)
-        if foto:
-            imagen_src = 'data:image/jpeg;base64,' + base64.b64encode(foto).decode()
-    except Exception:
-        pass
-
     # Si ya existe el producto en el carrito
     if key in cart:
         cart[key]['cantidad'] = int(cart[key].get('cantidad', 0)) + 1
@@ -67,14 +58,15 @@ def add_to_cart(product_id):
             'precio': precio_float,
             'cantidad': 1,
             'talla': talla,
-            'color': color,
-            'imagen': imagen_src
+            'color': color
+            # ❗ Imagen ya NO se guarda en la sesión ❗
         }
 
     session['cart'] = cart
     session.modified = True
 
     flash(f"{producto.nombre} agregado al carrito (Talla {talla}, Color {color})", 'success')
+    
     return redirect(url_for('carrito.cart'))
 
 
@@ -87,6 +79,20 @@ def cart():
     total = Decimal('0.00')
 
     for key, item in cart_dict.items():
+
+        # Obtener imagen REAL desde la base de datos (ya NO desde sesión)
+        producto = Producto.query.get(item.get('id'))
+        imagen_src = "/static/no-image.png"
+
+        try:
+            if producto and producto.foto_producto:
+                imagen_src = (
+                    "data:image/jpeg;base64,"
+                    + base64.b64encode(producto.foto_producto).decode()
+                )
+        except:
+            pass
+
         precio = Decimal(str(item.get('precio', 0)))
         cantidad = int(item.get('cantidad', 1))
         subtotal = precio * cantidad
@@ -100,7 +106,7 @@ def cart():
             'cantidad': cantidad,
             'talla': item.get('talla'),
             'color': item.get('color'),
-            'imagen': item.get('imagen', '/static/no-image.png'),
+            'imagen': imagen_src,
             'subtotal': float(subtotal)
         })
 
@@ -180,17 +186,17 @@ def cart_checkout():
         id_usuario=str(usuario_id),
         direccion_envio=direccion_envio,
         total=total,
-        estado='pagada'  # o 'pendiente', según tu flujo
+        estado='pagada'
     )
     db.session.add(factura)
-    db.session.commit()  # Guarda para obtener el ID de factura
+    db.session.commit()  # Guarda para obtener el ID
 
     # Crear los items de la factura
     for item in cart.values():
         subtotal = float(item['precio']) * int(item['cantidad'])
         factura_item = FacturaItem(
             id_factura=factura.id_factura,
-            id_producto=item['id'],  # opcional, si quieres vincular al producto
+            id_producto=item['id'],
             nombre_producto=item['nombre'],
             talla=item.get('talla', ''),
             color=item.get('color', ''),
@@ -206,6 +212,5 @@ def cart_checkout():
     session.pop('cart', None)
     session.modified = True
 
-    # Mensaje y redirección
     flash('Compra realizada con éxito. Tu factura ha sido generada.', 'success')
     return redirect(url_for('factura.invoice_detail', factura_id=factura.id_factura))
